@@ -1,0 +1,19 @@
+<RCC>
+    <qresource prefix="/">
+        <file>resources/icons/camera.png</file>
+        <file>resources/icons/marker.png</file>
+        <file>resources/shaders/ads_fragment.frag</file>
+        <file>resources/shaders/ads_fragment.vert</file>
+        <file>resources/shaders/depth.frag</file>
+        <file>resources/shaders/depth.vert</file>
+        <file>resources/shaders/markertexture.frag</file>
+        <file>resources/shaders/markertexture.vert</file>
+        <file>resources/shaders/normals.frag</file>
+        <file>resources/shaders/normals.vert</file>
+        <file>resources/shaders/picking.frag</file>
+        <file>resources/shaders/picking.vert</file>
+        <file>resources/textures/marker.jpg</file>
+        <file>resources/models/camera/camera.obj</file>
+        <file>resources/models/marker/marker.obj</file>
+    </qresource>
+</RCC>
