@@ -15,5 +15,7 @@
         <file>resources/textures/marker.jpg</file>
         <file>resources/models/camera/camera.obj</file>
         <file>resources/models/marker/marker.obj</file>
+        <file>resources/shaders/shadow.frag</file>
+        <file>resources/shaders/shadow.vert</file>
     </qresource>
 </RCC>

@@ -54,7 +54,7 @@ private:
     void depth();
 
     void draw();
-    void setupCamera();
+    void setupCamera(QVector3D eye,QVector3D center,QVector3D up);
     void drawNode(const Node *node, QMatrix4x4 objectMatrix);
     void setMaterialUniforms(MaterialInfo &mater);
     void setShaderUniformNodeValues(QMatrix4x4 objectMatrix);
@@ -104,6 +104,7 @@ private:
     QOpenGLShaderProgram m_DepthshaderProgram;
     QOpenGLShaderProgram m_MarkerTextureProgram;
     QOpenGLShaderProgram m_ObjectPicking;
+    QOpenGLShaderProgram m_ShadowMapProgram;
 
     Pass pass;
 
@@ -119,10 +120,10 @@ private:
 
     QSharedPointer<Node> m_cameraNode;
     QSharedPointer<Node> m_markerNode;
-
     QSharedPointer<Node> m_rootNode;
 
-    QMatrix4x4 m_projection, m_view, m_model;
+    QMatrix4x4 m_projection, m_view, m_model, m_shadow;
+    QOpenGLTexture* shadowTexture;
 
     QString m_filepath;
     ModelLoader::PathType m_pathType;

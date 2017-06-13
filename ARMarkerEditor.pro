@@ -33,14 +33,16 @@ SOURCES += main.cpp\
     glsurface/openglwindow.cpp \
     menu/mainwindow.cpp \
     menu/markermenu.cpp \
-    glsurface/modelwindow_gl.cpp
+    glsurface/modelwindow_gl.cpp \
+    glsurface/shaders.cpp
 
 HEADERS  += glsurface/glsignalemitter.h \
     glsurface/modelloader.h \
     glsurface/openglwindow.h \
     menu/mainwindow.h \
     menu/markermenu.h \
-    glsurface/modelwindow_gl.h
+    glsurface/modelwindow_gl.h \
+    glsurface/shaders.h
 
 FORMS    += menu/mainwindow.ui \
     menu/markermenu.ui
@@ -60,7 +62,9 @@ DISTFILES += \
     resources/shaders/depth.vert \
     resources/shaders/markertexture.vert \
     resources/shaders/normals.vert \
-    resources/shaders/picking.vert
+    resources/shaders/picking.vert \
+    resources/shaders/shadow.vert \
+    resources/shaders/shadow.frag
 RESOURCES += \
     resources.qrc
 unix: !macx {

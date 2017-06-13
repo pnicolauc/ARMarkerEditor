@@ -30,6 +30,7 @@ void ModelWindow_GL::initializeGL()
     createShaderProgram(":/resources/shaders/depth.vert", ":/resources/shaders/depth.frag",&m_DepthshaderProgram);
     createShaderProgram(":/resources/shaders/markertexture.vert", ":/resources/shaders/markertexture.frag",&m_MarkerTextureProgram);
     createShaderProgram(":/resources/shaders/picking.vert", ":/resources/shaders/picking.frag",&m_ObjectPicking);
+    createShaderProgram(":/resources/shaders/shadow.vert", ":/resources/shaders/shadow.frag",&m_ShadowMapProgram);
 
 
     createBuffers();
@@ -38,6 +39,7 @@ void ModelWindow_GL::initializeGL()
     createAttributes(&m_DepthshaderProgram);
     createAttributes(&m_MarkerTextureProgram);
     createAttributes(&m_ObjectPicking);
+    createAttributes(&m_ShadowMapProgram);
 
     setupLightingAndMatrices();
 
@@ -284,10 +286,16 @@ void ModelWindow_GL::setupShader(){
             m_MarkerTextureProgram.setUniformValue( "lightPosition", m_lightInfo.Position );
             m_MarkerTextureProgram.setUniformValue( "lightIntensity", m_lightInfo.Intensity );
             break;
+        case CameraSim:
+            m_ShadowMapProgram.bind();
+            m_ShadowMapProgram.setUniformValue( "lightPosition", m_lightInfo.Position );
+            m_ShadowMapProgram.setUniformValue( "lightIntensity", m_lightInfo.Intensity );
+            break;
         case Full:
             m_shaderProgram.bind();
             m_shaderProgram.setUniformValue( "lightPosition", m_lightInfo.Position );
             m_shaderProgram.setUniformValue( "lightIntensity", m_lightInfo.Intensity );
+
             break;
     }
 }
@@ -296,6 +304,7 @@ void ModelWindow_GL::setupRenderTarget(){
     switch(pass){
         case Depth:
         case Normals:
+        case CameraSim:
         if(float_fbo==nullptr){
                         QOpenGLFramebufferObjectFormat format2;
                         float_fbo = new QOpenGLFramebufferObject(width,height, QOpenGLFramebufferObject::CombinedDepthStencil,
@@ -333,6 +342,11 @@ void ModelWindow_GL::releaseRenderTarget(){
                 qDebug() << "Normals:" <<lastMouseWorldNormals[0] << " " << lastMouseWorldNormals[1] << " " << lastMouseWorldNormals[2];
             }
             break;
+        case CameraSim:
+            QImage im = float_fbo->toImage();
+            shadowTexture = new QOpenGLTexture(im.mirrored());
+            im.save("shadow.png");
+            break;
     }
 }
 
@@ -344,6 +358,7 @@ void ModelWindow_GL::RenderPass(Pass currPass,bool renderFBO,bool renderModel,bo
     // Clear color and depth buffers
     // Bind shader programs and rendertargets
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+
     setupShader();
     if(renderFBO)
         setupRenderTarget();
@@ -445,12 +460,12 @@ void ModelWindow_GL::markerChanged(int index,Marker* marker){
    // markers[index]=*markerr;
 }
 
-void ModelWindow_GL::setupCamera(){
+void ModelWindow_GL::setupCamera(QVector3D eye,QVector3D center,QVector3D up){
     m_view.setToIdentity();
     m_view.lookAt(
-                cameraPos,    // Camera Position
-                cameraPos + cameraForward,    // Point camera looks towards
-                upVec);   // Up vector
+                eye,    // Camera Position
+                center,    // Point camera looks towards
+                up);   // Up vector
 }
 void ModelWindow_GL::createCamera(QVector3D pos,QVector3D rot,float angle){
     Camera camera;
@@ -500,15 +515,23 @@ void ModelWindow_GL::createEntity(){
 
 void ModelWindow_GL::paintGL()
 {
-    //Setup Camera taking into account mouse and key inputs
-    setupCamera();
+    //if(cameras.size()>0){
+        setupCamera(QVector3D(0,0,10),QVector3D(0,0,0),QVector3D(0,1,0));
+        RenderPass(CameraSim,true,true,false);
+        m_shadow = m_view;
+    //}
 
+
+    //Setup Camera taking into account mouse and key inputs
+    setupCamera(cameraPos,cameraPos+cameraForward,upVec);
     //Render Passes
     //RenderPass(Pass,Render to fbo?,render Model?,render Entities(cam + markers)?)
     RenderPass(Normals,true,true,false);
     RenderPass(Depth,true,true,false);
     RenderPass(Picking,true,false,true);
     RenderPass(Full,false,true,true);
+
+    shadowTexture->release();
 
     //Create Camera or Marker
     if(mouseDClick){
@@ -522,7 +545,6 @@ void ModelWindow_GL::setShaderUniformNodeValues(QMatrix4x4 objectMatrix){
     QMatrix4x4 modelViewMatrix = m_view * modelMatrix;
     QMatrix3x3 normalMatrix = modelViewMatrix.normalMatrix();
     QMatrix4x4 mvp = m_projection * modelViewMatrix;
-
     switch (pass) {
     case Normals:
         m_NormalshaderProgram.setUniformValue( "MV", modelViewMatrix );// Transforming to eye space
@@ -552,12 +574,27 @@ void ModelWindow_GL::setShaderUniformNodeValues(QMatrix4x4 objectMatrix){
         m_MarkerTextureProgram.setUniformValue( "P", m_projection );
         m_MarkerTextureProgram.setUniformValue( "V", m_view );
         break;
-    case Full:
+    case Full:{
+        QMatrix4x4 shadowModel = QMatrix4x4();
+        shadowModel.setToIdentity();
+        QMatrix4x4 shadowMVP = m_projection * (m_shadow *shadowModel);
+
         m_shaderProgram.setUniformValue( "MV", modelViewMatrix );// Transforming to eye space
         m_shaderProgram.setUniformValue( "N", normalMatrix );    // Transform normal to Eye space
         m_shaderProgram.setUniformValue( "MVP", mvp );           // Matrix for transforming to Clip space
         m_shaderProgram.setUniformValue( "P", m_projection );
         m_shaderProgram.setUniformValue( "V", m_view );
+        m_shaderProgram.setUniformValue("shadow", shadowMVP);
+        m_shaderProgram.setUniformValue("texture", 0);
+        shadowTexture->bind();
+
+        break;}
+    case CameraSim:
+        m_ShadowMapProgram.setUniformValue( "MV", modelViewMatrix );// Transforming to eye space
+        m_ShadowMapProgram.setUniformValue( "N", normalMatrix );    // Transform normal to Eye space
+        m_ShadowMapProgram.setUniformValue( "MVP", mvp );           // Matrix for transforming to Clip space
+        m_ShadowMapProgram.setUniformValue( "P", m_projection );
+        m_ShadowMapProgram.setUniformValue( "V", m_view );
         break;
     default:
         break;
@@ -620,6 +657,11 @@ void ModelWindow_GL::setMaterialUniforms(MaterialInfo &mater)
         m_ObjectPicking.setUniformValue( "Ks", mater.Specular );
         m_ObjectPicking.setUniformValue( "shininess", mater.Shininess );
         break;
+    case CameraSim:
+        m_ShadowMapProgram.setUniformValue( "Ka", mater.Ambient );
+        m_ShadowMapProgram.setUniformValue( "Kd", mater.Diffuse );
+        m_ShadowMapProgram.setUniformValue( "Ks", mater.Specular );
+        m_ShadowMapProgram.setUniformValue( "shininess", mater.Shininess );
     default:
         break;
     }

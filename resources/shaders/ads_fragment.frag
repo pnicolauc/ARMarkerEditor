@@ -10,9 +10,13 @@ uniform vec3 Kd;
 uniform vec3 Ks;
 uniform float shininess;
 
+uniform sampler2D texture;
+
+
 // Input variables coming from vertex shader, interpolated to this fragment
 in vec3 interpolatedPosition;
 in vec3 interpolatedNormal;
+in vec4 interpolatedShadow;
 
 out vec4 fragmentColor;
 
@@ -55,5 +59,13 @@ void main()
     }
 
     // Calculate final color
-    fragmentColor = vec4(lightIntensity * (ambientContribution + diffuseContribution + specularContribution), 1.0);
+    //fragmentColor = vec4(lightIntensity * (ambientContribution + diffuseContribution + specularContribution), 1.0);
+
+    float visibility = 1.0;
+    if ( interpolatedShadow.xyz  ==  interpolatedPosition.xyz){
+        fragmentColor=interpolatedShadow;
+
+    }
+    fragmentColor=vec4(0.5,0.5,0.5,1);
+
 }
