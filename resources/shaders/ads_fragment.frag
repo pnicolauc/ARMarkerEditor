@@ -73,24 +73,15 @@ void main()
       vec2( -0.094184101, -0.92938870 ),
       vec2( 0.34495938, 0.29387760 )
     );
+    vec4 simVals = vec4(0,0,0,0);
     for (int i=0;i<4;i++){
-      if ( texture2D( texture, projCoords.xy + poissonDisk[i]/700.0 ).a  <  projCoords.z-bias ){
-        visibility-=0.2;
+      if ( texture2D( texture, projCoords.xy + poissonDisk[i]/700.0 ).a  >  projCoords.z-bias ){
+        simVals +=vec4(texture2D( texture, projCoords.xy + poissonDisk[i]/700.0 ).rgb,1.0f);
       }
     }
-  /*
 
-
-
-    vec4 simVals =texture2D(texture, projCoords.xy);
-    float closestDepth = simVals.a;
-    float currentDepth = projCoords.z;
-
-    // Calculate final color
-
-    if(currentDepth- bias < closestDepth){
-        diffuseContribution.rgb = simVals.rgb;
-    }*/
+    simVals/=5;
+    diffuseContribution.rgb = simVals.rgb;
 
     fragmentColor = vec4(lightIntensity * (ambientContribution + (diffuseContribution)+ specularContribution), 1.0)*visibility ;
 
