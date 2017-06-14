@@ -78,6 +78,6 @@ macx {
 }
 
 win32 {
-    INCLUDEPATH += "C:/Assimp3/include"
-    LIBS += -L"C:/Assimp3/lib/Release" -lassimp
+    INCLUDEPATH += "C:\Assimp\build\include"
+    LIBS += -L"C:\Assimp\build" -lassimp
 }

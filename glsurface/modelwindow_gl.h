@@ -74,7 +74,7 @@ private:
     int selectedMarker;
 
 
-
+    GLuint text;
     QOpenGLTexture* defaultMarkerTexture;
     QImage* defaultMarkerImage;
 

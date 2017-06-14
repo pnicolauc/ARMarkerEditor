@@ -34,10 +34,10 @@ QString findFile(QString relativeFilePath, int scanDepth)
 bool ModelLoader::LoadModel(QString filePath, PathType pathType,ModelType modelType){
 
     QString l_filePath;
-    if (pathType == RelativePath)
-        l_filePath = findFile(filePath, 5);
-    else
-        l_filePath = filePath;
+
+    l_filePath = filePath;
+
+    qDebug() << l_filePath;
 
     Assimp::Importer importer;
 
@@ -119,8 +119,8 @@ bool ModelLoader::Load(QString filePath, PathType pathType)
     QFile::copy(":/resources/models/camera/camera.obj", QCoreApplication::applicationDirPath().append("camera.obj"));
     QFile::copy(":/resources/models/marker/marker.obj",QCoreApplication::applicationDirPath().append("marker.obj"));
 
-    LoadModel("camera.obj",pathType,CameraType);
-    LoadModel("marker.obj",pathType,MarkerType);
+    LoadModel(QCoreApplication::applicationDirPath().append("camera.obj"),pathType,CameraType);
+    LoadModel(QCoreApplication::applicationDirPath().append("marker.obj"),pathType,MarkerType);
 
     return true;
 }

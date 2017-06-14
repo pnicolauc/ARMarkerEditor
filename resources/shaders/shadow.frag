@@ -36,13 +36,29 @@ vec3 WorldPosFromDepth(float depth) {
 
     return worldSpacePosition.xyz;
 }
+
+
 void main()
 {
-
     float depth = gl_FragCoord.z / gl_FragCoord.w;
-
     vec3 worldPos= WorldPosFromDepth(depth);
 
-    fragmentColor = vec4(worldPos.x,worldPos.y,worldPos.z, 1.0);
-    //fragmentColor = vec4(gl_FragCoord.z,gl_FragCoord.z,gl_FragCoord.z, 1.0);
+    // normal has been interpolated, so we need to normalize it
+    vec3 normalVector = normalize(interpolatedNormal);
+
+    // Calculate light source vector
+    vec3 lightSourceVector = normalize( lightPosition.xyz - interpolatedPosition);
+    float perpendicular =dot( lightSourceVector, normalVector );
+
+    vec3 normalColor = vec3(0,0,0);
+    if(perpendicular > 0.3)
+        normalColor+=vec3(0,perpendicular,0);
+
+    if(perpendicular>=0 && perpendicular <= 0.5)
+        normalColor+= vec3(1-perpendicular,0,0);
+
+    if(perpendicular< 0.0)
+        normalColor= vec3(1,0,0);
+
+    fragmentColor = vec4(normalColor, gl_FragCoord.z);
 }
