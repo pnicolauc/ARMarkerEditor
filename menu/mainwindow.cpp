@@ -95,7 +95,7 @@ void MainWindow::addGLWindow(){
 
 
 void MainWindow::setupGLSignals(){
-    connect(modelWindow->glSignalEmitter,SIGNAL(editMarker(int,Marker*)), this, SLOT(addMarkerMenu(int,Marker*)));
+    connect(modelWindow->entities.glSignalEmitter,SIGNAL(editMarker(int,Marker*)), this, SLOT(addMarkerMenu(int,Marker*)));
 }
 
 void MainWindow::addMarkerMenu(int index,Marker* marker){

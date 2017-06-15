@@ -1,6 +1,11 @@
 #include "modelwindow_gl.h"
 #include <QOpenGLFramebufferObject>
 #include <QVector>
+#include <QtCore/qmath.h>
+#include <stdio.h>      /* printf */
+
+#include <math.h>       /* acos */
+
 
 ModelWindow_GL::ModelWindow_GL(QString filepath, ModelLoader::PathType pathType, QString texturePath) :
     OpenGLWindow()
@@ -10,21 +15,32 @@ ModelWindow_GL::ModelWindow_GL(QString filepath, ModelLoader::PathType pathType,
   , m_texturePath(texturePath)
   , m_error(false)
 {
-    glSignalEmitter = new GLSignalEmitter();
-}
-
-void ModelWindow_GL::setupTextures(){
-    defaultMarkerImage=new QImage(QString(":/resources/textures/marker.jpg"));
-    defaultMarkerTexture= new QOpenGLTexture(defaultMarkerImage->mirrored());
 }
 
 void ModelWindow_GL::initializeGL()
 {
-    mouseDrag=false;
-    mouseDClick=false;
+    screen.mouseDrag=false;
+    screen.mouseDClick=false;
+    cameraSim = false;
     createMode= NONE;
+    create_mode = false;
+
+    entities = Entities();
+    viewCam = ViewCamera();
+    shaders = Shaders();
+    scroll=0;
+    selectedMarker=-1;
     this->initializeOpenGLFunctions();
 
+    float aspect = 1.0f;
+    screen.m_projection.setToIdentity();
+    screen.m_projection.perspective(
+                60.0f,          // field of vision
+                aspect,         // aspect ratio
+                0.5f,           // near clipping plane
+                100.0f);       // far clipping plane
+
+    createBuffers();
     createShaderProgram(":/resources/shaders/ads_fragment.vert", ":/resources/shaders/ads_fragment.frag",&m_shaderProgram);
     createShaderProgram(":/resources/shaders/normals.vert", ":/resources/shaders/normals.frag",&m_NormalshaderProgram);
     createShaderProgram(":/resources/shaders/depth.vert", ":/resources/shaders/depth.frag",&m_DepthshaderProgram);
@@ -32,8 +48,6 @@ void ModelWindow_GL::initializeGL()
     createShaderProgram(":/resources/shaders/picking.vert", ":/resources/shaders/picking.frag",&m_ObjectPicking);
     createShaderProgram(":/resources/shaders/shadow.vert", ":/resources/shaders/shadow.frag",&m_ShadowMapProgram);
 
-
-    createBuffers();
     createAttributes(&m_shaderProgram);
     createAttributes(&m_NormalshaderProgram);
     createAttributes(&m_DepthshaderProgram);
@@ -43,12 +57,9 @@ void ModelWindow_GL::initializeGL()
 
     setupLightingAndMatrices();
 
-    setupTextures();
-
     glEnable(GL_DEPTH_TEST);
     glClearColor(1.0f, 1.0f, 1.0f ,1.0f);
 }
-
 void ModelWindow_GL::createShaderProgram(QString vShader, QString fShader,QOpenGLShaderProgram* shaderProgram)
 {
     // Compile vertex shader
@@ -69,6 +80,38 @@ void ModelWindow_GL::createShaderProgram(QString vShader, QString fShader,QOpenG
         m_error = true;
     }
 }
+void ModelWindow_GL::createAttributes(QOpenGLShaderProgram* shaderprogram){
+    m_vao.bind();
+    // Set up the vertex array state
+    shaderprogram->bind();
+
+    // Map vertex data to the vertex shader's layout location '0'
+    m_vertexBuffer.bind();
+    shaderprogram->enableAttributeArray( 0 );      // layout location
+    shaderprogram->setAttributeBuffer( 0,          // layout location
+                                        GL_FLOAT,   // data's type
+                                        0,          // Offset to data in buffer
+                                        3);         // number of components (3 for x,y,z)
+
+    // Map normal data to the vertex shader's layout location '1'
+    m_normalBuffer.bind();
+    shaderprogram->enableAttributeArray( 1 );      // layout location
+    shaderprogram->setAttributeBuffer( 1,          // layout location
+                                        GL_FLOAT,   // data's type
+                                        0,          // Offset to data in buffer
+                                        3);         // number of components (3 for x,y,z)
+
+    if(m_textureUVBuffer.isCreated()) {
+        m_textureUVBuffer.bind();
+        shaderprogram->enableAttributeArray( 2 );      // layout location
+        shaderprogram->setAttributeBuffer( 2,          // layout location
+                                            GL_FLOAT,   // data's type
+                                            0,          // Offset to data in buffer
+                                            2);         // number of components (2 for u,v)
+    }
+}
+
+
 
 void ModelWindow_GL::createBuffers()
 {
@@ -133,76 +176,9 @@ void ModelWindow_GL::createBuffers()
 
 }
 
-void ModelWindow_GL::createAttributes(QOpenGLShaderProgram* shaderprogram)
-{
-    if(m_error)
-        return;
 
-    m_vao.bind();
-    // Set up the vertex array state
-    shaderprogram->bind();
-
-    // Map vertex data to the vertex shader's layout location '0'
-    m_vertexBuffer.bind();
-    shaderprogram->enableAttributeArray( 0 );      // layout location
-    shaderprogram->setAttributeBuffer( 0,          // layout location
-                                        GL_FLOAT,   // data's type
-                                        0,          // Offset to data in buffer
-                                        3);         // number of components (3 for x,y,z)
-
-    // Map normal data to the vertex shader's layout location '1'
-    m_normalBuffer.bind();
-    shaderprogram->enableAttributeArray( 1 );      // layout location
-    shaderprogram->setAttributeBuffer( 1,          // layout location
-                                        GL_FLOAT,   // data's type
-                                        0,          // Offset to data in buffer
-                                        3);         // number of components (3 for x,y,z)
-
-    if(m_textureUVBuffer.isCreated()) {
-        m_textureUVBuffer.bind();
-        shaderprogram->enableAttributeArray( 2 );      // layout location
-        shaderprogram->setAttributeBuffer( 2,          // layout location
-                                            GL_FLOAT,   // data's type
-                                            0,          // Offset to data in buffer
-                                            2);         // number of components (2 for u,v)
-    }
-
-
-}
-QVector3D rotate(QVector3D Vx,QVector3D axis, float angle) {
-  float ca = cos(angle);
-  float sa = sin(angle);
-
-  QVector3D cross = QVector3D::crossProduct(Vx,axis);
-
-  float dot= QVector3D::dotProduct(axis,Vx);
-
-  QVector3D r=Vx*ca + cross*sa + dot*axis*(1-ca);
-
-  return r;
-}
 void ModelWindow_GL::setupLightingAndMatrices()
 {
-    m_view.setToIdentity();
-
-    cameraPos = QVector3D(0.0f, 0.0f, 1.0f);
-    cameraVec = QVector3D(0.0f, 0.0f, 0.0f);
-    upVec = QVector3D(0.0f, 1.0f, 0.0f);
-
-    cameraForward = (QVector3D(cameraVec - cameraPos));
-    cameraForward.normalize();
-    m_view.lookAt(
-                cameraPos,    // Camera Position
-                cameraVec,    // Point camera looks towards
-                upVec);   // Up vector
-    float aspect = 4.0f/3.0f;
-    m_projection.setToIdentity();
-    m_projection.perspective(
-                60.0f,          // field of vision
-                aspect,         // aspect ratio
-                0.5f,           // near clipping plane
-                100.0f);       // far clipping plane
-
     m_lightInfo.Position = QVector4D( -1.0f, 1.0f, 1.0f, 1.0f );
     m_lightInfo.Intensity = QVector3D( 1.0f, 1.0f, 1.0f);
 
@@ -214,18 +190,18 @@ void ModelWindow_GL::setupLightingAndMatrices()
 
 void ModelWindow_GL::resizeGL(int w, int h)
 {
-    height=h;
-    width=w;
     glViewport( 0, 0, w, h );
-    normsTex = new GLfloat[4*width*height];
-    depthTex = new GLfloat[4*width*height];
-    m_projection.setToIdentity();
-    m_projection.perspective(60.0f, (float)w/h, .3f, 100);
+    normsTex = new GLfloat[4*w*h];
+    depthTex = new GLfloat[4*w*h];
+    screen.height=h;
+    screen.width=w;
+    screen.m_projection.setToIdentity();
+    screen.m_projection.perspective(60.0f, (float)w/h, .3f, 100);
 }
 
 void ModelWindow_GL::drawCameras(){
-    for(int i=0;i< cameras.size();i++){
-        Camera cam= cameras.at(i);
+    for(int i=0;i< entities.cameraCount();i++){
+        Camera cam= entities.getCamera(i);
         m_model.setToIdentity();
         m_model.translate(cam.position);
         m_model.rotate(cam.angle,cam.rotation);
@@ -239,13 +215,11 @@ void ModelWindow_GL::drawCameras(){
 void ModelWindow_GL::drawMarkers(){
     if(pass == Full){
         pass=MarkerTex;
-        m_MarkerTextureProgram.bind();
-        m_MarkerTextureProgram.setUniformValue( "lightPosition", m_lightInfo.Position );
-        m_MarkerTextureProgram.setUniformValue( "lightIntensity", m_lightInfo.Intensity );
-        m_MarkerTextureProgram.setUniformValue("texture", 0);
+        curr_Program=getCurrentProgram();
+        shaders.bindProgram(curr_Program,pass,m_lightInfo);
     }
-    for(int i=0;i< markers.size();i++){
-        Marker mk= markers.at(i);
+    for(int i=0;i< entities.markerCount();i++){
+        Marker mk= entities.getMarker(i);
         mk.texture->bind();
 
         if(pass==MarkerTex){
@@ -265,44 +239,29 @@ void ModelWindow_GL::drawMarkers(){
         m_vao.bind();
         drawNode(m_markerNode.data(), QMatrix4x4());
         m_vao.release();
+
     }
+    if(pass==MarkerTex){
+        if(createMode==CREATE_MARKER){
+            create_mode = true;
+
+            /*Marker tempMk = entities.createTemporaryMarker(
+                        lastMouseWorldNormals,lastMouseWorldPos);
+
+            tempMk.texture->bind();
+            m_model.setToIdentity();
+            m_model.translate(tempMk.position);
+            m_model.rotate(tempMk.angle,tempMk.rotation);
+            m_model.scale(tempMk.scale.x(),tempMk.scale.y(),0.0);
+
+            m_MarkerTextureProgram.setUniformValue( "selected", true );
+            m_vao.bind();
+            drawNode(m_markerNode.data(), QMatrix4x4());
+            m_vao.release();*/
+        }
+    }
+
     m_model.setToIdentity();
-}
-
-void ModelWindow_GL::setupShader(){
-    switch(pass){
-        case Normals:
-            m_NormalshaderProgram.bind();
-            m_NormalshaderProgram.setUniformValue( "lightPosition", m_lightInfo.Position );
-            m_NormalshaderProgram.setUniformValue( "lightIntensity", m_lightInfo.Intensity );
-            break;
-        case Depth:
-            m_DepthshaderProgram.bind();
-            m_DepthshaderProgram.setUniformValue( "lightPosition", m_lightInfo.Position );
-            m_DepthshaderProgram.setUniformValue( "lightIntensity", m_lightInfo.Intensity );
-            break;
-        case Picking:
-            m_ObjectPicking.bind();
-            m_ObjectPicking.setUniformValue( "lightPosition", m_lightInfo.Position );
-            m_ObjectPicking.setUniformValue( "lightIntensity", m_lightInfo.Intensity );
-            break;
-        case MarkerTex:
-            m_MarkerTextureProgram.bind();
-            m_MarkerTextureProgram.setUniformValue( "lightPosition", m_lightInfo.Position );
-            m_MarkerTextureProgram.setUniformValue( "lightIntensity", m_lightInfo.Intensity );
-            break;
-        case CameraSim:
-            m_ShadowMapProgram.bind();
-            m_ShadowMapProgram.setUniformValue( "lightPosition", m_lightInfo.Position );
-            m_ShadowMapProgram.setUniformValue( "lightIntensity", m_lightInfo.Intensity );
-            break;
-        case Full:
-            m_shaderProgram.bind();
-            m_shaderProgram.setUniformValue( "lightPosition", m_lightInfo.Position );
-            m_shaderProgram.setUniformValue( "lightIntensity", m_lightInfo.Intensity );
-
-            break;
-    }
 }
 
 void ModelWindow_GL::setupRenderTarget(){
@@ -313,7 +272,7 @@ void ModelWindow_GL::setupRenderTarget(){
 
         if(float_fbo==nullptr){
                         QOpenGLFramebufferObjectFormat format2;
-                        float_fbo = new QOpenGLFramebufferObject(width,height, QOpenGLFramebufferObject::CombinedDepthStencil,
+                        float_fbo = new QOpenGLFramebufferObject(screen.width,screen.height, QOpenGLFramebufferObject::CombinedDepthStencil,
                                                                  GL_TEXTURE_2D,
                                                                  GL_RGBA32F);
         }
@@ -323,7 +282,7 @@ void ModelWindow_GL::setupRenderTarget(){
         if(int_fbo==nullptr){
                         QOpenGLFramebufferObjectFormat format;
                         format.setAttachment(QOpenGLFramebufferObject::CombinedDepthStencil);
-                        int_fbo = new QOpenGLFramebufferObject(width,height, format);
+                        int_fbo = new QOpenGLFramebufferObject(screen.width,screen.height, format);
         }
         int_fbo->bind();
         break;
@@ -335,26 +294,28 @@ void ModelWindow_GL::releaseRenderTarget(){
             fboPickingImage = int_fbo->toImage();
             break;
         case Depth:
-            if(mouseDClick){
                 glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
-                glReadPixels(mouseSelectedX, height-mouseSelectedY, 1, 1, GL_RGBA, GL_FLOAT, lastMouseWorldPos);
-                qDebug() << "Position" << " " << lastMouseWorldPos[2]<< " " <<lastMouseWorldPos[0] << " " << lastMouseWorldPos[1] << " " << lastMouseWorldPos[2];
-            }
+                glReadPixels(screen.lastMouseX, screen.height-screen.lastMouseY, 1, 1, GL_RGBA, GL_FLOAT, lastMouseWorldPos);
+                //qDebug() << "Position" << " " << lastMouseWorldPos[2]<< " " <<lastMouseWorldPos[0] << " " << lastMouseWorldPos[1] << " " << lastMouseWorldPos[2];
             break;
         case Normals:
-            if(mouseDClick){
                 glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
-                glReadPixels(mouseSelectedX, height-mouseSelectedY, 1, 1, GL_RGBA, GL_FLOAT, lastMouseWorldNormals);
-                qDebug() << "Normals:" <<lastMouseWorldNormals[0] << " " << lastMouseWorldNormals[1] << " " << lastMouseWorldNormals[2];
-            }
+                glReadPixels(screen.lastMouseX, screen.height-screen.lastMouseY, 1, 1, GL_RGBA, GL_FLOAT, lastMouseWorldNormals);
+                //qDebug() << "Normals:" <<lastMouseWorldNormals[0] << " " << lastMouseWorldNormals[1] << " " << lastMouseWorldNormals[2];
             break;
         case CameraSim:
             text= float_fbo->takeTexture();
-
-            /*QImage im = float_fbo->toImage();
-            shadowTexture = new QOpenGLTexture(im.mirrored());
-            im.save("shadow.png");*/
             break;
+    }
+}
+QOpenGLShaderProgram* ModelWindow_GL::getCurrentProgram(){
+    switch(pass){
+        case Normals:return &m_NormalshaderProgram;
+        case Depth:return &m_DepthshaderProgram;
+        case Picking:return &m_ObjectPicking;
+        case MarkerTex:return &m_MarkerTextureProgram;
+        case CameraSim:return &m_ShadowMapProgram;
+        case Full:return &m_shaderProgram;
     }
 }
 
@@ -363,11 +324,13 @@ void ModelWindow_GL::RenderPass(Pass currPass,bool renderFBO,bool renderModel,bo
         return;
 
     pass=currPass;
+    curr_Program=getCurrentProgram();
     // Clear color and depth buffers
     // Bind shader programs and rendertargets
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
-    setupShader();
+    shaders.bindProgram(curr_Program,pass,m_lightInfo);
+
     if(renderFBO)
         setupRenderTarget();
     else{
@@ -395,29 +358,32 @@ void ModelWindow_GL::RenderPass(Pass currPass,bool renderFBO,bool renderModel,bo
 
 void ModelWindow_GL::mousePressEvent(QMouseEvent* event)
 {
-    mouseDrag=true;
+    if(event->button() == Qt::LeftButton){
+        screen.mouseDrag=true;
+    }else if(event->button() == Qt::RightButton){
+        screen.mouseRightDrag=true;
+    }
+
 }
 void ModelWindow_GL::mouseReleaseEvent(QMouseEvent* event){
-    mouseDrag= false;
-
+    if(event->button() == Qt::LeftButton){
+        screen.mouseDrag= false;
+    }
+    else if(event->button() == Qt::RightButton){
+        screen.mouseRightDrag=false;
+    }
 }
 void ModelWindow_GL::mouseMoveEvent(QMouseEvent* event){
-    if(mouseDrag)
+    if(screen.mouseDrag)
     {
-        float difX = (lastMouseX - event->x())/100.0;
-        float difY = (lastMouseY - event->y())/100.0;
+        float difX = (screen.lastMouseX - event->x())/100.0;
+        float difY = (screen.lastMouseY - event->y())/100.0;
 
-        //Left/Right Camera Rotation
-        cameraForward = rotate(cameraForward,upVec, -difX);
-
-        //Up/Down Camera Rotation
-        QVector3D upV= QVector3D::crossProduct(upVec,cameraForward);
-        rotate(upVec, upV, difY);
-        cameraForward =rotate(cameraForward, upV, difY);
+        viewCam.mouseRotate(difX,difY);
 
     }
-    lastMouseX=event->x();
-    lastMouseY=event->y();
+    screen.lastMouseX=event->x();
+    screen.lastMouseY=event->y();
 
 }
 
@@ -427,31 +393,37 @@ void ModelWindow_GL::mouseDoubleClickEvent(QMouseEvent* event)
     if(color.red()!=255) {
         qDebug() << "Clicked on Marker";
         selectedMarker = color.red();
-        emit glSignalEmitter->editMarker(selectedMarker,&markers[selectedMarker]);
+       // emit glSignalEmitter->editMarker(selectedMarker,&markers[selectedMarker]);
     }else{
-        mouseSelectedX=event->x();
-        mouseSelectedY=event->y();
-        mouseDClick=true;
+        screen.mouseSelectedX=event->x();
+        screen.mouseSelectedY=event->y();
+        screen.mouseDClick=true;
     }
 }
 
+void ModelWindow_GL::wheelEvent(QWheelEvent *event)
+{
+    scroll += event->delta() / 400.0;
 
+    event->accept();
+}
 
 void ModelWindow_GL::keyPressEvent(QKeyEvent * ev) {
     switch (ev->key()) {
     case  Qt::Key_W:
-        cameraPos+=cameraForward/10.0;
+        viewCam.walkForward();
         break;
     case Qt::Key_S:
-        cameraPos-=cameraForward/10.0;
+        viewCam.walkBackward();
         break;
     case Qt::Key_C:{
         createMode=CREATE_CAMERA;
+         // Set the cursor target
         qDebug() << "CREATE_CAMERA";
-
         break;
         }
     case Qt::Key_M:{
+        // Create a target cursor from a resource file
         createMode=CREATE_MARKER;
         qDebug() << "CREATE_MARKER";
 
@@ -461,6 +433,7 @@ void ModelWindow_GL::keyPressEvent(QKeyEvent * ev) {
         break;
     }
 
+    this->setCursor(entities.getCursor(createMode));
 
 }
 
@@ -468,140 +441,145 @@ void ModelWindow_GL::markerChanged(int index,Marker* marker){
    // markers[index]=*markerr;
 }
 
-void ModelWindow_GL::setupCamera(QVector3D eye,QVector3D center,QVector3D up){
-    m_view.setToIdentity();
-    m_view.lookAt(
-                eye,    // Camera Position
-                center,    // Point camera looks towards
-                up);   // Up vector
-}
-void ModelWindow_GL::createCamera(QVector3D pos,QVector3D rot,float angle){
-    Camera camera;
-    if(pos.x()==1.0 && pos.y() == 1.0 && pos.z() ==1.0){
-        camera.position= cameraPos + (cameraForward*3);
-    }else camera.position= pos;
-    camera.rotation= rot;
-    camera.angle=angle;
-    cameras.push_back(camera);
-}
-
-void ModelWindow_GL::createMarker(QVector3D pos,QVector3D rot,float angle){
-    Marker marker;
-    if(pos.x()==1.0 && pos.y() == 1.0 && pos.z() ==1.0){
-        marker.position = cameraPos + (cameraForward*3);
-    }else marker.position= pos;
-    marker.rotation= rot;
-    marker.angle=angle;
-    marker.scale=QVector2D(1.0,1.0);
-    marker.texture = defaultMarkerTexture;
-    marker.image = defaultMarkerImage;
-
-    markers.push_back(marker);
-    selectedMarker=markers.size()-1;
-
-    emit glSignalEmitter->editMarker(markers.size()-1,&markers[markers.size()-1]);
-}
-
 void ModelWindow_GL::createEntity(){
-    QVector3D pos= QVector3D(lastMouseWorldPos[0],lastMouseWorldPos[1],lastMouseWorldPos[2]);
-    QVector3D rot= QVector3D(0.0,0.0,0.0);
+    QVector3D pos;
+
+    QVector3D rot;
     float angle=0.0;
-    //TODO CREATE MARKER
+
     switch (createMode) {
-        case CREATE_MARKER:
-            createMarker(pos,rot,angle);
+        case CREATE_MARKER:{
+            QVector3D defRot=QVector3D(0.0,0.0,-1.0);
+            QVector3D normalV = QVector3D(lastMouseWorldNormals[0],lastMouseWorldNormals[1],lastMouseWorldNormals[2]);
+            QVector3D cross= QVector3D::crossProduct(defRot,normalV);
+            float dot= QVector3D::dotProduct(defRot,normalV);
+            float angle= acos (dot);
+
+            pos= QVector3D(lastMouseWorldPos[0],lastMouseWorldPos[1],lastMouseWorldPos[2]);
+            rot= cross;
+            selectedMarker=entities.createMarker(pos,rot,angle*57.2957795);
+            create_mode=false;
+    }
             break;
         case CREATE_CAMERA:
-            createCamera(pos,rot,angle);
+            pos= QVector3D(lastMouseWorldPos[0]+lastMouseWorldNormals[0],
+                    lastMouseWorldPos[1]+lastMouseWorldNormals[1],
+                    lastMouseWorldPos[2]+lastMouseWorldNormals[2]);
+
+
+            rot= QVector3D(0.0,0.0,0.0);
+            entities.createCamera(pos,rot,angle);
             break;
         default:
             break;
     }
-
     createMode=NONE;
+    this->setCursor(entities.getCursor(createMode));
+
 }
 
 void ModelWindow_GL::paintGL()
 {
-    //if(cameras.size()>0){
-
-    //}
-
-
     //Setup Camera taking into account mouse and key inputs
-    setupCamera(cameraPos,cameraPos+cameraForward,upVec);
+    viewCam.setupCamera();
     //Render Passes
     //RenderPass(Pass,Render to fbo?,render Model?,render Entities(cam + markers)?)
     RenderPass(Normals,true,true,false);
     RenderPass(Depth,true,true,false);
     RenderPass(Picking,true,false,true);
 
+    if(cameraSim){
+        viewCam.setupCamera(QVector3D(0,0,5),QVector3D(0,0,0),QVector3D(0,1,0));
+        RenderPass(CameraSim,true,true,false);
+        m_shadow = QMatrix4x4(viewCam.getViewM());
+    }
 
-    setupCamera(QVector3D(0,0,5),QVector3D(0,0,0),QVector3D(0,1,0));
-    RenderPass(CameraSim,true,true,false);
-    m_shadow = QMatrix4x4(m_view);
-
-    setupCamera(cameraPos,cameraPos+cameraForward,upVec);
+    viewCam.setupCamera();
 
     RenderPass(Full,false,true,true);
 
     //shadowTexture->release();
 
     //Create Camera or Marker
-    if(mouseDClick){
+    if(screen.mouseDClick){
         createEntity();
-        mouseDClick=false;
+        screen.mouseDClick=false;
     }
+    if(screen.mouseRightDrag && selectedMarker>=0){
+        QVector3D defRot=QVector3D(0.0,0.0,-1.0);
+        QVector3D normalV = QVector3D(lastMouseWorldNormals[0],lastMouseWorldNormals[1],lastMouseWorldNormals[2]);
+        QVector3D cross= QVector3D::crossProduct(defRot,normalV);
+        float dot= QVector3D::dotProduct(defRot,normalV);
+
+        float angle= acos (dot);
+
+        if(lastMouseWorldPos[0]==1 && lastMouseWorldPos[1]==1 && lastMouseWorldPos[2]==1)
+           entities.getMarkerPtr(selectedMarker)->position=viewCam.getForwardPos();
+        else
+           entities.getMarkerPtr(selectedMarker)->position=QVector3D(lastMouseWorldPos[0],lastMouseWorldPos[1],lastMouseWorldPos[2]);
+       if(scroll!=0){
+           entities.getMarkerPtr(selectedMarker)->position+=QVector3D(scroll*lastMouseWorldNormals[0],
+                                                                   scroll*lastMouseWorldNormals[1],
+                                                                   scroll*lastMouseWorldNormals[2]);
+       }
+
+       qDebug() << entities.getMarkerPtr(selectedMarker)->position;
+       entities.getMarkerPtr(selectedMarker)->rotation=cross;
+       entities.getMarkerPtr(selectedMarker)->angle=angle*57.2957795;
+
+       entities.emitChangedMarkerSignal(selectedMarker);
+
+    }
+
 }
 
 void ModelWindow_GL::setShaderUniformNodeValues(QMatrix4x4 objectMatrix){
     QMatrix4x4 modelMatrix = m_model * objectMatrix;
-    QMatrix4x4 modelViewMatrix = m_view * modelMatrix;
+    QMatrix4x4 modelViewMatrix = viewCam.getViewM() * modelMatrix;
     QMatrix3x3 normalMatrix = modelViewMatrix.normalMatrix();
-    QMatrix4x4 mvp = m_projection * modelViewMatrix;
+    QMatrix4x4 mvp = screen.m_projection * modelViewMatrix;
     switch (pass) {
     case Normals:
         m_NormalshaderProgram.setUniformValue( "MV", modelViewMatrix );// Transforming to eye space
         m_NormalshaderProgram.setUniformValue( "N", normalMatrix );    // Transform normal to Eye space
         m_NormalshaderProgram.setUniformValue( "MVP", mvp );           // Matrix for transforming to Clip space
-        m_NormalshaderProgram.setUniformValue( "P", m_projection );
-        m_NormalshaderProgram.setUniformValue( "V", m_view );
+        m_NormalshaderProgram.setUniformValue( "P", screen.m_projection );
+        m_NormalshaderProgram.setUniformValue( "V", viewCam.getViewM() );
         break;
     case Depth:
         m_DepthshaderProgram.setUniformValue( "MV", modelViewMatrix );// Transforming to eye space
         m_DepthshaderProgram.setUniformValue( "N", normalMatrix );    // Transform normal to Eye space
         m_DepthshaderProgram.setUniformValue( "MVP", mvp );           // Matrix for transforming to Clip space
-        m_DepthshaderProgram.setUniformValue( "P", m_projection );
-        m_DepthshaderProgram.setUniformValue( "V", m_view );
+        m_DepthshaderProgram.setUniformValue( "P", screen.m_projection );
+        m_DepthshaderProgram.setUniformValue( "V", viewCam.getViewM() );
         break;
     case Picking:
         m_ObjectPicking.setUniformValue( "MV", modelViewMatrix );// Transforming to eye space
         m_ObjectPicking.setUniformValue( "N", normalMatrix );    // Transform normal to Eye space
         m_ObjectPicking.setUniformValue( "MVP", mvp );           // Matrix for transforming to Clip space
-        m_ObjectPicking.setUniformValue( "P", m_projection );
-        m_ObjectPicking.setUniformValue( "V", m_view );
+        m_ObjectPicking.setUniformValue( "P", screen.m_projection );
+        m_ObjectPicking.setUniformValue( "V", viewCam.getViewM() );
         break;
     case MarkerTex:
         m_MarkerTextureProgram.setUniformValue( "MV", modelViewMatrix );// Transforming to eye space
         m_MarkerTextureProgram.setUniformValue( "N", normalMatrix );    // Transform normal to Eye space
         m_MarkerTextureProgram.setUniformValue( "MVP", mvp );           // Matrix for transforming to Clip space
-        m_MarkerTextureProgram.setUniformValue( "P", m_projection );
-        m_MarkerTextureProgram.setUniformValue( "V", m_view );
+        m_MarkerTextureProgram.setUniformValue( "P", screen.m_projection );
+        m_MarkerTextureProgram.setUniformValue( "V", viewCam.getViewM() );
+        m_MarkerTextureProgram.setUniformValue( "create_mode", create_mode );
+
         break;
     case Full:{
-
-        QMatrix4x4 shadowMVP = m_projection * (m_shadow *modelMatrix);
-        QMatrix4x4 bias = QMatrix4x4(0.5, 0.0, 0.0, 0.0,
-                                     0.0, 0.5, 0.0, 0.0,
-                                     0.0, 0.0, 0.5, 0.0,
-                                     0.5, 0.5, 0.5, 1.0);
-        QMatrix4x4 shadowMVP2 = /*bias**/shadowMVP ;
+        QMatrix4x4 shadowMVP = screen.m_projection * (m_shadow *modelMatrix);
         m_shaderProgram.setUniformValue( "MV", modelViewMatrix );// Transforming to eye space
         m_shaderProgram.setUniformValue( "N", normalMatrix );    // Transform normal to Eye space
         m_shaderProgram.setUniformValue( "MVP", mvp );           // Matrix for transforming to Clip space
-        m_shaderProgram.setUniformValue( "P", m_projection );
-        m_shaderProgram.setUniformValue( "V", m_view );
-        m_shaderProgram.setUniformValue("shadow",shadowMVP2 );
+        m_shaderProgram.setUniformValue( "P", screen.m_projection );
+        m_shaderProgram.setUniformValue( "V", viewCam.getViewM() );
+        if(cameraSim)
+            m_shaderProgram.setUniformValue("shadow",shadowMVP );
+
+        m_shaderProgram.setUniformValue( "cameraSim", cameraSim );
         glBindTexture(GL_TEXTURE_2D, text);
         m_shaderProgram.setUniformValue("texture",0);
 
@@ -611,8 +589,8 @@ void ModelWindow_GL::setShaderUniformNodeValues(QMatrix4x4 objectMatrix){
         m_ShadowMapProgram.setUniformValue( "MV", modelViewMatrix );// Transforming to eye space
         m_ShadowMapProgram.setUniformValue( "N", normalMatrix );    // Transform normal to Eye space
         m_ShadowMapProgram.setUniformValue( "MVP", mvp );           // Matrix for transforming to Clip space
-        m_ShadowMapProgram.setUniformValue( "P", m_projection );
-        m_ShadowMapProgram.setUniformValue( "V", m_view );
+        m_ShadowMapProgram.setUniformValue( "P", screen.m_projection );
+        m_ShadowMapProgram.setUniformValue( "V", viewCam.getViewM() );
         break;}
     default:
         break;
@@ -628,9 +606,9 @@ void ModelWindow_GL::drawNode(const Node *node, QMatrix4x4 objectMatrix)
     for(int imm = 0; imm<node->meshes.size(); ++imm)
     {
         if(node->meshes[imm]->material->Name == QString("DefaultMaterial"))
-            setMaterialUniforms(m_materialInfo);
+            shaders.setMaterialUniforms(curr_Program,m_materialInfo);
         else
-            setMaterialUniforms(*node->meshes[imm]->material);
+            shaders.setMaterialUniforms(curr_Program,*node->meshes[imm]->material);
 
         glDrawElements( GL_TRIANGLES, node->meshes[imm]->indexCount, GL_UNSIGNED_INT
                             , (const void*)(node->meshes[imm]->indexOffset * sizeof(unsigned int)) );
@@ -639,50 +617,6 @@ void ModelWindow_GL::drawNode(const Node *node, QMatrix4x4 objectMatrix)
     // Recursively draw this nodes children nodes
     for(int inn = 0; inn<node->nodes.size(); ++inn)
         drawNode(&node->nodes[inn], objectMatrix);
-}
-
-void ModelWindow_GL::setMaterialUniforms(MaterialInfo &mater)
-{
-    switch (pass) {
-    case Normals:
-        m_NormalshaderProgram.setUniformValue( "Ka", mater.Ambient );
-        m_NormalshaderProgram.setUniformValue( "Kd", mater.Diffuse );
-        m_NormalshaderProgram.setUniformValue( "Ks", mater.Specular );
-        m_NormalshaderProgram.setUniformValue( "shininess", mater.Shininess );
-        break;
-    case Depth:
-
-        m_DepthshaderProgram.setUniformValue( "Ka", mater.Ambient );
-        m_DepthshaderProgram.setUniformValue( "Kd", mater.Diffuse );
-        m_DepthshaderProgram.setUniformValue( "Ks", mater.Specular );
-        m_DepthshaderProgram.setUniformValue( "shininess", mater.Shininess );
-        break;
-    case Full:
-        m_shaderProgram.setUniformValue( "Ka", mater.Ambient );
-        m_shaderProgram.setUniformValue( "Kd", mater.Diffuse );
-        m_shaderProgram.setUniformValue( "Ks", mater.Specular );
-        m_shaderProgram.setUniformValue( "shininess", mater.Shininess );
-        break;
-    case MarkerTex:
-        m_MarkerTextureProgram.setUniformValue( "Ka", mater.Ambient );
-        m_MarkerTextureProgram.setUniformValue( "Kd", mater.Diffuse );
-        m_MarkerTextureProgram.setUniformValue( "Ks", mater.Specular );
-        m_MarkerTextureProgram.setUniformValue( "shininess", mater.Shininess );
-        break;
-    case Picking:
-        m_ObjectPicking.setUniformValue( "Ka", mater.Ambient );
-        m_ObjectPicking.setUniformValue( "Kd", mater.Diffuse );
-        m_ObjectPicking.setUniformValue( "Ks", mater.Specular );
-        m_ObjectPicking.setUniformValue( "shininess", mater.Shininess );
-        break;
-    case CameraSim:
-        m_ShadowMapProgram.setUniformValue( "Ka", mater.Ambient );
-        m_ShadowMapProgram.setUniformValue( "Kd", mater.Diffuse );
-        m_ShadowMapProgram.setUniformValue( "Ks", mater.Specular );
-        m_ShadowMapProgram.setUniformValue( "shininess", mater.Shininess );
-    default:
-        break;
-    }
 }
 
 void ModelWindow_GL::cleanupGL()

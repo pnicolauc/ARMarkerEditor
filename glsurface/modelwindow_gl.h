@@ -12,9 +12,12 @@
 #include <QOpenGLFramebufferObject>
 #include <QVector>
 #include <glsurface/glsignalemitter.h>
+#include <glsurface/entities.h>
+#include <glsurface/viewcamera.h>
+#include <glsurface/screen.h>
 
-enum Pass { Normals, Depth , MarkerTex , Picking, Full , CameraSim};
-enum CreateMode{ CREATE_MARKER,CREATE_CAMERA,NONE };
+#include <glsurface/shaders.h>
+
 class ModelWindow_GL : public QOpenGLFunctions_3_3_Core, public OpenGLWindow
 {
 
@@ -25,14 +28,13 @@ public:
     void mouseReleaseEvent(QMouseEvent* event);
     void keyPressEvent(QKeyEvent * ev);
     void mouseMoveEvent(QMouseEvent* event);
+    void wheelEvent(QWheelEvent *event);
+
     void drawCameras();
     void drawMarkers();
-    void setupTextures();
-    void createMarker(QVector3D pos,QVector3D rot,float angle);
     void createEntity();
-    void createCamera(QVector3D pos,QVector3D rot,float angle);
 
-    GLSignalEmitter* glSignalEmitter;
+    Entities entities;
 
 protected:
     void initializeGL();
@@ -52,52 +54,42 @@ private:
     void RenderPass(Pass currPass,bool renderFBO,bool renderModel,bool renderEntities);
     void createAttributes(QOpenGLShaderProgram* shaderprogram);
     void depth();
+    QOpenGLShaderProgram* getCurrentProgram();
 
     void draw();
-    void setupCamera(QVector3D eye,QVector3D center,QVector3D up);
     void drawNode(const Node *node, QMatrix4x4 objectMatrix);
     void setMaterialUniforms(MaterialInfo &mater);
     void setShaderUniformNodeValues(QMatrix4x4 objectMatrix);
-    void setupShader();
+
     void setupRenderTarget();
     void releaseRenderTarget();
 
-     #define M_PI_2 1.57079632679489661923
-    int height, width;
+    ViewCamera viewCam;
+    Shaders shaders;
+    Screen screen;
 
-    float xAngle,yAngle;
 
+    #define M_PI_2 1.57079632679489661923
 
     GLfloat *depthTex;
     GLfloat *normsTex;
 
     int selectedMarker;
 
-
     GLuint text;
-    QOpenGLTexture* defaultMarkerTexture;
-    QImage* defaultMarkerImage;
 
     QImage fboPickingImage;
     float lastMouseWorldPos[4];
     float lastMouseWorldNormals[4];
 
-    QVector<Camera> cameras;
-    QVector<Marker> markers;
-
-
-    int lastMouseX,lastMouseY;
-    bool mouseDrag;
-
-    int mouseSelectedX,mouseSelectedY;
-    bool mouseDClick;
+    bool cameraSim;
     CreateMode createMode;
+    bool create_mode;
 
 
-    QVector3D cameraPos;
-    QVector3D cameraVec;
-    QVector3D cameraForward;
-    QVector3D upVec;
+    float scroll;
+
+    QOpenGLShaderProgram* curr_Program;
 
     QOpenGLShaderProgram m_shaderProgram;
     QOpenGLShaderProgram m_NormalshaderProgram;
@@ -122,7 +114,7 @@ private:
     QSharedPointer<Node> m_markerNode;
     QSharedPointer<Node> m_rootNode;
 
-    QMatrix4x4 m_projection, m_view, m_model, m_shadow;
+    QMatrix4x4 m_model, m_shadow;
     QOpenGLTexture* shadowTexture;
 
     QString m_filepath;

@@ -15,6 +15,8 @@ uniform mat4 V;
 
 uniform sampler2D texture;
 
+uniform bool cameraSim;
+
 
 // Input variables coming from vertex shader, interpolated to this fragment
 in vec3 interpolatedPosition;
@@ -62,27 +64,27 @@ void main()
     }
 
     float depth = gl_FragCoord.z / gl_FragCoord.w;
+    if(cameraSim){
+        vec3 projCoords = interpolatedShadow.xyz/ interpolatedShadow.w;
+        projCoords = projCoords * 0.5 + 0.5;
+        float bias = 0.005;
 
-    vec3 projCoords = interpolatedShadow.xyz/ interpolatedShadow.w;
-    projCoords = projCoords * 0.5 + 0.5;
-    float bias = 0.005;
-    float visibility = 1.0f;
-    vec2 poissonDisk[4] = vec2[](
-      vec2( -0.94201624, -0.39906216 ),
-      vec2( 0.94558609, -0.76890725 ),
-      vec2( -0.094184101, -0.92938870 ),
-      vec2( 0.34495938, 0.29387760 )
-    );
-    vec4 simVals = vec4(0,0,0,0);
-    for (int i=0;i<4;i++){
-      if ( texture2D( texture, projCoords.xy + poissonDisk[i]/700.0 ).a  >  projCoords.z-bias ){
-        simVals +=vec4(texture2D( texture, projCoords.xy + poissonDisk[i]/700.0 ).rgb,1.0f);
-      }
+        vec2 poissonDisk[4] = vec2[](
+          vec2( -0.94201624, -0.39906216 ),
+          vec2( 0.94558609, -0.76890725 ),
+          vec2( -0.094184101, -0.92938870 ),
+          vec2( 0.34495938, 0.29387760 )
+        );
+        vec4 simVals = vec4(0,0,0,0);
+        for (int i=0;i<4;i++){
+          if ( texture2D( texture, projCoords.xy + poissonDisk[i]/700.0 ).a  >  projCoords.z-bias ){
+            simVals +=vec4(texture2D( texture, projCoords.xy + poissonDisk[i]/700.0 ).rgb,1.0f);
+          }
+        }
+
+        simVals/=5;
+        diffuseContribution.rgb = simVals.rgb;
     }
-
-    simVals/=5;
-    diffuseContribution.rgb = simVals.rgb;
-
-    fragmentColor = vec4(lightIntensity * (ambientContribution + (diffuseContribution)+ specularContribution), 1.0)*visibility ;
+    fragmentColor = vec4(lightIntensity * (ambientContribution + (diffuseContribution)+ specularContribution), 1.0) ;
 
 }

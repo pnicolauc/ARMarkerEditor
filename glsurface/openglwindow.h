@@ -12,6 +12,7 @@
 class QScreen;
 class QTimer;
 class QOpenGLContext;
+enum Pass { Normals, Depth , MarkerTex , Picking, Full , CameraSim};
 
 struct Camera
 {

@@ -11,6 +11,7 @@ uniform vec3 Ks;
 uniform float shininess;
 
 uniform bool selected;
+uniform bool create_mode;
 
 #define TOP 0.95
 #define BOTTOM 0.05
@@ -37,4 +38,5 @@ void main()
         fragmentColor = vec4(color);
     }
     else fragmentColor = texture2D(texture, texC);
+
 }
