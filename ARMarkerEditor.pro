@@ -37,7 +37,8 @@ SOURCES += main.cpp\
     glsurface/shaders.cpp \
     glsurface/entities.cpp \
     glsurface/viewcamera.cpp \
-    glsurface/threeddata.cpp
+    glsurface/threeddata.cpp \
+    menu/cameramenu.cpp
 
 HEADERS  += glsurface/glsignalemitter.h \
     glsurface/modelloader.h \
@@ -49,10 +50,12 @@ HEADERS  += glsurface/glsignalemitter.h \
     glsurface/entities.h \
     glsurface/viewcamera.h \
     glsurface/screen.h \
-    glsurface/threeddata.h
+    glsurface/threeddata.h \
+    menu/cameramenu.h
 
 FORMS    += menu/mainwindow.ui \
-    menu/markermenu.ui
+    menu/markermenu.ui \
+    menu/cameramenu.ui
 
 
 

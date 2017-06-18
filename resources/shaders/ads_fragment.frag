@@ -13,20 +13,31 @@ uniform float shininess;
 uniform mat4 P;
 uniform mat4 V;
 
-uniform sampler2D texture;
 
 uniform bool cameraSim;
+
+
+uniform sampler2D simTexture0;
+uniform sampler2D simTexture1;
+uniform sampler2D simTexture2;
+uniform sampler2D simTexture3;
+uniform sampler2D simTexture4;
+uniform sampler2D simTexture5;
+
+
 
 
 // Input variables coming from vertex shader, interpolated to this fragment
 in vec3 interpolatedPosition;
 in vec3 interpolatedNormal;
 in vec4 interpolatedShadow;
+flat in int simTexture;
 
 out vec4 fragmentColor;
 
 void main()
 {
+
     // normal has been interpolated, so we need to normalize it
     vec3 normalVector = normalize(interpolatedNormal);
 
@@ -67,6 +78,9 @@ void main()
     if(cameraSim){
         vec3 projCoords = interpolatedShadow.xyz/ interpolatedShadow.w;
         projCoords = projCoords * 0.5 + 0.5;
+
+        if(projCoords.x<1.0 || projCoords.x > 0.0 || projCoords.y>1.0 || projCoords.y < 0.0 ||  projCoords.z>1 )
+        {
         float bias = 0.005;
 
         vec2 poissonDisk[4] = vec2[](
@@ -77,14 +91,53 @@ void main()
         );
         vec4 simVals = vec4(0,0,0,0);
         for (int i=0;i<4;i++){
-          if ( texture2D( texture, projCoords.xy + poissonDisk[i]/700.0 ).a  >  projCoords.z-bias ){
-            simVals +=vec4(texture2D( texture, projCoords.xy + poissonDisk[i]/700.0 ).rgb,1.0f);
-          }
+            switch(simTexture) {
+                case 0:
+                if ( texture2D( simTexture0, projCoords.xy + poissonDisk[i]/700.0 ).a  >  projCoords.z-bias ){
+                  simVals +=vec4(texture2D( simTexture0, projCoords.xy + poissonDisk[i]/700.0 ).rgb,1.0f);
+                }
+                break;
+                case 1:
+                if ( texture2D( simTexture1, projCoords.xy + poissonDisk[i]/700.0 ).a  >  projCoords.z-bias ){
+                  simVals +=vec4(texture2D( simTexture1, projCoords.xy + poissonDisk[i]/700.0 ).rgb,1.0f);
+                }
+                break;
+                case 2:
+                if ( texture2D( simTexture2, projCoords.xy + poissonDisk[i]/700.0 ).a  >  projCoords.z-bias ){
+                  simVals +=vec4(texture2D( simTexture2, projCoords.xy + poissonDisk[i]/700.0 ).rgb,1.0f);
+                }
+                break;
+                case 3:
+                if ( texture2D( simTexture2, projCoords.xy + poissonDisk[i]/700.0 ).a  >  projCoords.z-bias ){
+                  simVals +=vec4(texture2D( simTexture2, projCoords.xy + poissonDisk[i]/700.0 ).rgb,1.0f);
+                }
+                break;
+                case 4:
+                if ( texture2D( simTexture2, projCoords.xy + poissonDisk[i]/700.0 ).a  >  projCoords.z-bias ){
+                  simVals +=vec4(texture2D( simTexture2, projCoords.xy + poissonDisk[i]/700.0 ).rgb,1.0f);
+                }
+                break;
+                case 5:
+                if ( texture2D( simTexture2, projCoords.xy + poissonDisk[i]/700.0 ).a  >  projCoords.z-bias ){
+                  simVals +=vec4(texture2D( simTexture2, projCoords.xy + poissonDisk[i]/700.0 ).rgb,1.0f);
+                }
+                break;
+            }
+
+
         }
 
         simVals/=5;
         diffuseContribution.rgb = simVals.rgb;
+
+        fragmentColor = vec4(projCoords,1);
+        if(projCoords.x>1.0 || projCoords.x < 0.0  )diffuseContribution = Kd * dot( lightSourceVector, normalVector);;
+        if(projCoords.y>1.0 || projCoords.y < 0.0  )diffuseContribution = Kd * dot( lightSourceVector, normalVector);;
+        if(projCoords.z>1)diffuseContribution = Kd * dot( lightSourceVector, normalVector);
+        }
     }
     fragmentColor = vec4(lightIntensity * (ambientContribution + (diffuseContribution)+ specularContribution), 1.0) ;
+
+    //fragmentColor = vec4(lightIntensity * (ambientContribution + (diffuseContribution)+ specularContribution), 1.0) ;
 
 }

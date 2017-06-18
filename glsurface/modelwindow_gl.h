@@ -76,13 +76,24 @@ private:
 
     int selectedMarker;
 
-    GLuint text;
+
+
 
     QImage fboPickingImage;
     float lastMouseWorldPos[4];
     float lastMouseWorldNormals[4];
 
+
+    GLuint sim0;
+    GLuint sim1;
+    GLuint sim2;
+    GLuint sim3;
+    GLuint sim4;
+    GLuint sim5;
     bool cameraSim;
+    int simCount;
+    QVector<QVector3D> simDirs;
+
     CreateMode createMode;
     bool create_mode;
 
@@ -114,7 +125,11 @@ private:
     QSharedPointer<Node> m_markerNode;
     QSharedPointer<Node> m_rootNode;
 
-    QMatrix4x4 m_model, m_shadow;
+    QMatrix4x4 m_model, m_SimView0,
+    m_SimView1,m_SimView2,
+    m_SimView3,m_SimView4,
+    m_SimView5;
+
     QOpenGLTexture* shadowTexture;
 
     QString m_filepath;

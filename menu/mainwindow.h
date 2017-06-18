@@ -26,7 +26,7 @@ private:
 
 public slots:
     void addMarkerMenu(int index,Marker* marker);
-    void addCameraMenu(int index,Camera* camera);
+    void addCameraMenu(int index,Camera* camera, bool*runSim);
     void addGLWindow();
 
 };

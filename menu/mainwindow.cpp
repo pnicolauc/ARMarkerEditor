@@ -7,7 +7,9 @@
 #include <glsurface/modelwindow_gl.h>
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-#include "markermenu.h"
+#include <menu/markermenu.h>
+#include <menu/cameramenu.h>
+
 #include <QOpenGLContext>
 #include <glsurface/glsignalemitter.h>
 
@@ -96,6 +98,8 @@ void MainWindow::addGLWindow(){
 
 void MainWindow::setupGLSignals(){
     connect(modelWindow->entities.glSignalEmitter,SIGNAL(editMarker(int,Marker*)), this, SLOT(addMarkerMenu(int,Marker*)));
+    connect(modelWindow->entities.glSignalEmitter,SIGNAL(editCamera(int,Camera*,bool*)), this, SLOT(addCameraMenu(int,Camera*,bool*)));
+
 }
 
 void MainWindow::addMarkerMenu(int index,Marker* marker){
@@ -108,9 +112,17 @@ void MainWindow::addMarkerMenu(int index,Marker* marker){
 
     connect(markermenu,SIGNAL(markerChanged(int,Marker*)), modelWindow, SLOT(_markerChanged(int,Marker*)));
 }
-void MainWindow::addCameraMenu(int index,Camera* camera){
+
+void MainWindow::addCameraMenu(int index,Camera* camera,bool* runSim){
+    if(objectEditor!=nullptr) objectEditor->deleteLater();
+
+    CameraMenu* cameramenu= new CameraMenu(this);
+    objectEditor = cameramenu;
+    cameramenu->editCamera(index,camera,runSim);
+    ui->objectEditor->addWidget(cameramenu);
 
 }
+
 
 MainWindow::~MainWindow()
 {

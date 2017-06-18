@@ -34,8 +34,13 @@ public:
 
     void emitChangedMarkerSignal(int index);
 
-
+    QMatrix4x4 getCubeMapProjectionMatrix();
     GLSignalEmitter* glSignalEmitter;
+
+
+    bool runSim;
+    int simIndex;
+
 
 
 private:
@@ -51,12 +56,13 @@ private:
     QVector<Camera> cameras;
     QVector<Marker> markers;
 
-    bool cameraSim;
     CreateMode createMode;
     bool create_mode;
 
     QSharedPointer<Node> m_cameraNode;
     QSharedPointer<Node> m_markerNode;
+
+    QMatrix4x4 m_projection_cubemap;
 };
 
 #endif // ENTITIES_H

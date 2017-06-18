@@ -19,9 +19,18 @@ ModelWindow_GL::ModelWindow_GL(QString filepath, ModelLoader::PathType pathType,
 
 void ModelWindow_GL::initializeGL()
 {
+    simDirs.push_back( QVector3D(0,0,-1));
+    simDirs.push_back( QVector3D(0,0,1));
+    simDirs.push_back( QVector3D(0,1,0));
+    simDirs.push_back( QVector3D(0,-1,0));
+    simDirs.push_back( QVector3D(1,0,0));
+    simDirs.push_back( QVector3D(-1,0,0));
+
     screen.mouseDrag=false;
     screen.mouseDClick=false;
     cameraSim = false;
+    entities.runSim = false;
+
     createMode= NONE;
     create_mode = false;
 
@@ -277,7 +286,7 @@ void ModelWindow_GL::setupRenderTarget(){
                                                                  GL_RGBA32F);
         }
         float_fbo->bind();
-        break;
+            break;
         case Picking:
         if(int_fbo==nullptr){
                         QOpenGLFramebufferObjectFormat format;
@@ -304,7 +313,34 @@ void ModelWindow_GL::releaseRenderTarget(){
                 //qDebug() << "Normals:" <<lastMouseWorldNormals[0] << " " << lastMouseWorldNormals[1] << " " << lastMouseWorldNormals[2];
             break;
         case CameraSim:
-            text= float_fbo->takeTexture();
+        switch (simCount) {
+            case 0:
+                sim0= float_fbo->takeTexture();
+                m_SimView0 = QMatrix4x4(viewCam.getViewM());
+                break;
+            case 1:
+                sim1= float_fbo->takeTexture();
+                m_SimView1 = QMatrix4x4(viewCam.getViewM());
+
+            case 2:
+                sim2= float_fbo->takeTexture();
+                m_SimView2 = QMatrix4x4(viewCam.getViewM());
+
+            case 3:
+                sim3= float_fbo->takeTexture();
+                m_SimView3 = QMatrix4x4(viewCam.getViewM());
+
+            case 4:
+                sim4= float_fbo->takeTexture();
+                m_SimView4 = QMatrix4x4(viewCam.getViewM());
+
+            case 5:
+                sim5= float_fbo->takeTexture();
+                m_SimView5 = QMatrix4x4(viewCam.getViewM());
+
+            default:
+            break;
+        }
             break;
     }
 }
@@ -488,10 +524,17 @@ void ModelWindow_GL::paintGL()
     RenderPass(Depth,true,true,false);
     RenderPass(Picking,true,false,true);
 
-    if(cameraSim){
-        viewCam.setupCamera(QVector3D(0,0,5),QVector3D(0,0,0),QVector3D(0,1,0));
-        RenderPass(CameraSim,true,true,false);
-        m_shadow = QMatrix4x4(viewCam.getViewM());
+
+    if(entities.runSim){
+
+        for(int sc=0;sc<6;sc++){
+            simCount=sc;
+            viewCam.setupCamera(entities.getCamera(0).position,entities.getCamera(0).position- simDirs[sc],QVector3D(0,1,0));
+            RenderPass(CameraSim,true,true,false);
+        }
+
+        cameraSim=true;
+        entities.runSim=false;
     }
 
     viewCam.setupCamera();
@@ -537,7 +580,10 @@ void ModelWindow_GL::setShaderUniformNodeValues(QMatrix4x4 objectMatrix){
     QMatrix4x4 modelMatrix = m_model * objectMatrix;
     QMatrix4x4 modelViewMatrix = viewCam.getViewM() * modelMatrix;
     QMatrix3x3 normalMatrix = modelViewMatrix.normalMatrix();
-    QMatrix4x4 mvp = screen.m_projection * modelViewMatrix;
+    QMatrix4x4 mvp;
+    if(pass!=CameraSim)
+        mvp = screen.m_projection * modelViewMatrix;
+    else mvp = entities.getCubeMapProjectionMatrix() * modelViewMatrix;
     switch (pass) {
     case Normals:
         m_NormalshaderProgram.setUniformValue( "MV", modelViewMatrix );// Transforming to eye space
@@ -570,18 +616,40 @@ void ModelWindow_GL::setShaderUniformNodeValues(QMatrix4x4 objectMatrix){
 
         break;
     case Full:{
-        QMatrix4x4 shadowMVP = screen.m_projection * (m_shadow *modelMatrix);
+        QMatrix4x4 sim_mvp0 = entities.getCubeMapProjectionMatrix() * (m_SimView0 *modelMatrix);
+        QMatrix4x4 sim_mvp1 = entities.getCubeMapProjectionMatrix() * (m_SimView1 *modelMatrix);
+        QMatrix4x4 sim_mvp2 = entities.getCubeMapProjectionMatrix() * (m_SimView2 *modelMatrix);
+        QMatrix4x4 sim_mvp3 = entities.getCubeMapProjectionMatrix() * (m_SimView3 *modelMatrix);
+        QMatrix4x4 sim_mvp4 = entities.getCubeMapProjectionMatrix() * (m_SimView4 *modelMatrix);
+        QMatrix4x4 sim_mvp5 = entities.getCubeMapProjectionMatrix() * (m_SimView5 *modelMatrix);
+
         m_shaderProgram.setUniformValue( "MV", modelViewMatrix );// Transforming to eye space
         m_shaderProgram.setUniformValue( "N", normalMatrix );    // Transform normal to Eye space
         m_shaderProgram.setUniformValue( "MVP", mvp );           // Matrix for transforming to Clip space
         m_shaderProgram.setUniformValue( "P", screen.m_projection );
         m_shaderProgram.setUniformValue( "V", viewCam.getViewM() );
-        if(cameraSim)
-            m_shaderProgram.setUniformValue("shadow",shadowMVP );
+        if(cameraSim){
+            m_shaderProgram.setUniformValue("sim_mvp0",sim_mvp0 );
+            m_shaderProgram.setUniformValue("sim_mvp1",sim_mvp1 );
+            m_shaderProgram.setUniformValue("sim_mvp2",sim_mvp2 );
+            m_shaderProgram.setUniformValue("sim_mvp3",sim_mvp3 );
+            m_shaderProgram.setUniformValue("sim_mvp4",sim_mvp4 );
+            m_shaderProgram.setUniformValue("sim_mvp5",sim_mvp5 );
+        }
 
         m_shaderProgram.setUniformValue( "cameraSim", cameraSim );
-        glBindTexture(GL_TEXTURE_2D, text);
-        m_shaderProgram.setUniformValue("texture",0);
+        glBindTexture(GL_TEXTURE_2D, sim0);
+        m_shaderProgram.setUniformValue("simTexture0",0);
+        glBindTexture(GL_TEXTURE_2D, sim1);
+        m_shaderProgram.setUniformValue("simTexture1",1);
+        glBindTexture(GL_TEXTURE_2D, sim2);
+        m_shaderProgram.setUniformValue("simTexture2",2);
+        glBindTexture(GL_TEXTURE_2D, sim3);
+        m_shaderProgram.setUniformValue("simTexture3",3);
+        glBindTexture(GL_TEXTURE_2D, sim4);
+        m_shaderProgram.setUniformValue("simTexture4",4);
+        glBindTexture(GL_TEXTURE_2D, sim5);
+        m_shaderProgram.setUniformValue("simTexture5",5);
 
 
         break;}
@@ -589,7 +657,7 @@ void ModelWindow_GL::setShaderUniformNodeValues(QMatrix4x4 objectMatrix){
         m_ShadowMapProgram.setUniformValue( "MV", modelViewMatrix );// Transforming to eye space
         m_ShadowMapProgram.setUniformValue( "N", normalMatrix );    // Transform normal to Eye space
         m_ShadowMapProgram.setUniformValue( "MVP", mvp );           // Matrix for transforming to Clip space
-        m_ShadowMapProgram.setUniformValue( "P", screen.m_projection );
+        m_ShadowMapProgram.setUniformValue( "P", entities.getCubeMapProjectionMatrix() );
         m_ShadowMapProgram.setUniformValue( "V", viewCam.getViewM() );
         break;}
     default:

@@ -9,14 +9,23 @@ Entities::Entities()
     cameraCursor = QCursor(cameraCursorPic);
     defaultCursor= QCursor(Qt::ArrowCursor);
 
-    cameraSim = false;
     createMode= NONE;
     glSignalEmitter = new GLSignalEmitter();
 
     defaultMarkerImage=new QImage(QString(":/resources/textures/marker.jpg"));
     defaultMarkerTexture= new QOpenGLTexture(defaultMarkerImage->mirrored());
+
+    m_projection_cubemap.setToIdentity();
+    m_projection_cubemap.perspective(
+                90.0f,          // field of vision
+                1.0f,         // aspect ratio
+                0.5f,           // near clipping plane
+                100.0f);       // far clipping plane
 }
 
+QMatrix4x4 Entities::getCubeMapProjectionMatrix(){
+    return m_projection_cubemap;
+}
 
 int Entities::createMarker(QVector3D pos,QVector3D rot,float angle){
     Marker marker;
@@ -67,6 +76,8 @@ void Entities::createCamera(QVector3D pos,QVector3D rot,float angle){
     camera.rotation= rot;
     camera.angle=angle;
     cameras.push_back(camera);
+
+    emit glSignalEmitter->editCamera(cameras.size(),&cameras[cameras.size()-1],&runSim);
 }
 
 QCursor Entities::getCursor(CreateMode cm){
