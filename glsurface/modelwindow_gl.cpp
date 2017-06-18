@@ -21,10 +21,10 @@ void ModelWindow_GL::initializeGL()
 {
     simDirs.push_back( QVector3D(0,0,-1));
     simDirs.push_back( QVector3D(0,0,1));
-    simDirs.push_back( QVector3D(0,1,0));
-    simDirs.push_back( QVector3D(0,-1,0));
     simDirs.push_back( QVector3D(1,0,0));
     simDirs.push_back( QVector3D(-1,0,0));
+    simDirs.push_back( QVector3D(0,1,0));
+    simDirs.push_back( QVector3D(0,-1,0));
 
     screen.mouseDrag=false;
     screen.mouseDClick=false;
@@ -33,6 +33,7 @@ void ModelWindow_GL::initializeGL()
 
     createMode= NONE;
     create_mode = false;
+    simCount=0;
 
     entities = Entities();
     viewCam = ViewCamera();
@@ -298,6 +299,7 @@ void ModelWindow_GL::setupRenderTarget(){
     }
 }
 void ModelWindow_GL::releaseRenderTarget(){
+    QImage simImg;
     switch (pass) {
         case Picking:
             fboPickingImage = int_fbo->toImage();
@@ -315,26 +317,38 @@ void ModelWindow_GL::releaseRenderTarget(){
         case CameraSim:
         switch (simCount) {
             case 0:
+                simImg = float_fbo->toImage();
+                simImg.save("sim1.png");
                 sim0= float_fbo->takeTexture();
                 m_SimView0 = QMatrix4x4(viewCam.getViewM());
                 break;
             case 1:
+                simImg = float_fbo->toImage();
+                simImg.save("sim2.png");
                 sim1= float_fbo->takeTexture();
                 m_SimView1 = QMatrix4x4(viewCam.getViewM());
 
             case 2:
+                simImg = float_fbo->toImage();
+                simImg.save("sim3.png");
                 sim2= float_fbo->takeTexture();
                 m_SimView2 = QMatrix4x4(viewCam.getViewM());
 
             case 3:
+                simImg = float_fbo->toImage();
+                simImg.save("sim4.png");
                 sim3= float_fbo->takeTexture();
                 m_SimView3 = QMatrix4x4(viewCam.getViewM());
 
             case 4:
+            simImg = float_fbo->toImage();
+            simImg.save("sim5.png");
                 sim4= float_fbo->takeTexture();
                 m_SimView4 = QMatrix4x4(viewCam.getViewM());
 
             case 5:
+            simImg = float_fbo->toImage();
+            simImg.save("sim6.png");
                 sim5= float_fbo->takeTexture();
                 m_SimView5 = QMatrix4x4(viewCam.getViewM());
 
@@ -527,14 +541,18 @@ void ModelWindow_GL::paintGL()
 
     if(entities.runSim){
 
-        for(int sc=0;sc<6;sc++){
-            simCount=sc;
-            viewCam.setupCamera(entities.getCamera(0).position,entities.getCamera(0).position- simDirs[sc],QVector3D(0,1,0));
-            RenderPass(CameraSim,true,true,false);
-        }
+        QVector3D defUp= QVector3D(0,1,0);
+        QVector3D vertUp= QVector3D(0,0,1);
+        QVector3D currUp;
+        if(simCount<4) currUp = defUp; else currUp= vertUp;
+        viewCam.setupCamera(entities.getCamera(0).position,entities.getCamera(0).position- simDirs[simCount],currUp);
+        RenderPass(CameraSim,true,true,false);
 
-        cameraSim=true;
-        entities.runSim=false;
+        simCount++;
+        if(simCount==6){
+            cameraSim=true;
+            entities.runSim=false;
+        }
     }
 
     viewCam.setupCamera();
@@ -635,21 +653,33 @@ void ModelWindow_GL::setShaderUniformNodeValues(QMatrix4x4 objectMatrix){
             m_shaderProgram.setUniformValue("sim_mvp3",sim_mvp3 );
             m_shaderProgram.setUniformValue("sim_mvp4",sim_mvp4 );
             m_shaderProgram.setUniformValue("sim_mvp5",sim_mvp5 );
+            m_shaderProgram.setUniformValue("simTexture0",0);
+            m_shaderProgram.setUniformValue("simTexture1",1);
+            m_shaderProgram.setUniformValue("simTexture2",2);
+            m_shaderProgram.setUniformValue("simTexture3",3);
+            m_shaderProgram.setUniformValue("simTexture4",4);
+            m_shaderProgram.setUniformValue("simTexture5",5);
+            glActiveTexture(GL_TEXTURE0 + 0); // Texture unit 0
+            glBindTexture(GL_TEXTURE_2D, sim0);
+
+            glActiveTexture(GL_TEXTURE0 + 1); // Texture unit 1
+            glBindTexture(GL_TEXTURE_2D, sim1);
+
+            glActiveTexture(GL_TEXTURE0 + 2); // Texture unit 2
+            glBindTexture(GL_TEXTURE_2D, sim2);
+
+            glActiveTexture(GL_TEXTURE0 + 3); // Texture unit 3
+            glBindTexture(GL_TEXTURE_2D, sim3);
+
+            glActiveTexture(GL_TEXTURE0 + 4); // Texture unit 4
+            glBindTexture(GL_TEXTURE_2D, sim4);
+
+            glActiveTexture(GL_TEXTURE0 + 5); // Texture unit 5
+            glBindTexture(GL_TEXTURE_2D, sim5);
+
         }
 
         m_shaderProgram.setUniformValue( "cameraSim", cameraSim );
-        glBindTexture(GL_TEXTURE_2D, sim0);
-        m_shaderProgram.setUniformValue("simTexture0",0);
-        glBindTexture(GL_TEXTURE_2D, sim1);
-        m_shaderProgram.setUniformValue("simTexture1",1);
-        glBindTexture(GL_TEXTURE_2D, sim2);
-        m_shaderProgram.setUniformValue("simTexture2",2);
-        glBindTexture(GL_TEXTURE_2D, sim3);
-        m_shaderProgram.setUniformValue("simTexture3",3);
-        glBindTexture(GL_TEXTURE_2D, sim4);
-        m_shaderProgram.setUniformValue("simTexture4",4);
-        glBindTexture(GL_TEXTURE_2D, sim5);
-        m_shaderProgram.setUniformValue("simTexture5",5);
 
 
         break;}

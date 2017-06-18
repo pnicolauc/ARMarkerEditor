@@ -60,5 +60,5 @@ void main()
     if(perpendicular< 0.0)
         normalColor= vec3(1,0,0);
 
-    fragmentColor = vec4(normalColor, gl_FragCoord.z);
+    fragmentColor = vec4(normalColor, 1.0);
 }

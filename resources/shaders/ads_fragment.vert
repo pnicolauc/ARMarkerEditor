@@ -23,8 +23,12 @@ uniform bool cameraSim;
 // Interpolated by OpenGL before sent to fragment shader
 out vec3 interpolatedNormal;
 out vec3 interpolatedPosition;
-out vec4 interpolatedShadow;
-flat out int simTexture;
+out vec4 interpolatedShadow0;
+out vec4 interpolatedShadow1;
+out vec4 interpolatedShadow2;
+out vec4 interpolatedShadow3;
+out vec4 interpolatedShadow4;
+out vec4 interpolatedShadow5;
 
 void main()
 {
@@ -36,23 +40,12 @@ void main()
     interpolatedPosition = vec3( MV * vec4( vertexPosition, 1.0 ) );
 
     if(cameraSim){
-        for(int i=0;i<6;i++){
-            switch(i) {
-                case 0:curr_MVP=sim_mvp0; break;
-                case 1:curr_MVP=sim_mvp1; break;
-                case 2:curr_MVP=sim_mvp2; break;
-                case 3:curr_MVP=sim_mvp3; break;
-                case 4:curr_MVP=sim_mvp4; break;
-                case 5:curr_MVP=sim_mvp5; break;
-            }
-            interpolatedShadow=curr_MVP * vec4( vertexPosition, 1.0 );
-            projCoords = interpolatedShadow.xyz/ interpolatedShadow.w;
-            projCoords = projCoords * 0.5 + 0.5;
-            if(projCoords.x<1.0 && projCoords.x > 0.0 &&projCoords.y<1.0 && projCoords.y > 0.0 && projCoords.z<1){
-                simTexture=i;
-                break;
-            }
-        }
+        interpolatedShadow0=sim_mvp0 * vec4( vertexPosition, 1.0 );
+        interpolatedShadow1=sim_mvp1 * vec4( vertexPosition, 1.0 );
+        interpolatedShadow2=sim_mvp2 * vec4( vertexPosition, 1.0 );
+        interpolatedShadow3=sim_mvp3 * vec4( vertexPosition, 1.0 );
+        interpolatedShadow4=sim_mvp4 * vec4( vertexPosition, 1.0 );
+        interpolatedShadow5=sim_mvp5 * vec4( vertexPosition, 1.0 );
     }
     gl_Position = MVP * vec4( vertexPosition, 1.0 );
 }
