@@ -57,6 +57,7 @@ void ModelWindow_GL::initializeGL()
     createShaderProgram(":/resources/shaders/markertexture.vert", ":/resources/shaders/markertexture.frag",&m_MarkerTextureProgram);
     createShaderProgram(":/resources/shaders/picking.vert", ":/resources/shaders/picking.frag",&m_ObjectPicking);
     createShaderProgram(":/resources/shaders/shadow.vert", ":/resources/shaders/shadow.frag",&m_ShadowMapProgram);
+    createShaderProgram(":/resources/shaders/markerDepth.vert", ":/resources/shaders/markerDepth.frag",&m_MarkerDepthProgram);
 
     createAttributes(&m_shaderProgram);
     createAttributes(&m_NormalshaderProgram);
@@ -64,6 +65,7 @@ void ModelWindow_GL::initializeGL()
     createAttributes(&m_MarkerTextureProgram);
     createAttributes(&m_ObjectPicking);
     createAttributes(&m_ShadowMapProgram);
+    createAttributes(&m_MarkerDepthProgram);
 
     setupLightingAndMatrices();
 
@@ -303,6 +305,7 @@ void ModelWindow_GL::releaseRenderTarget(){
     switch (pass) {
         case Picking:
             fboPickingImage = int_fbo->toImage();
+            fboPickingImage.save("fbo.png");
             break;
         case Depth:
                 glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
@@ -318,37 +321,31 @@ void ModelWindow_GL::releaseRenderTarget(){
         switch (simCount) {
             case 0:
                 simImg = float_fbo->toImage();
-                simImg.save("sim1.png");
                 sim0= float_fbo->takeTexture();
                 m_SimView0 = QMatrix4x4(viewCam.getViewM());
                 break;
             case 1:
                 simImg = float_fbo->toImage();
-                simImg.save("sim2.png");
                 sim1= float_fbo->takeTexture();
                 m_SimView1 = QMatrix4x4(viewCam.getViewM());
 
             case 2:
                 simImg = float_fbo->toImage();
-                simImg.save("sim3.png");
                 sim2= float_fbo->takeTexture();
                 m_SimView2 = QMatrix4x4(viewCam.getViewM());
 
             case 3:
                 simImg = float_fbo->toImage();
-                simImg.save("sim4.png");
                 sim3= float_fbo->takeTexture();
                 m_SimView3 = QMatrix4x4(viewCam.getViewM());
 
             case 4:
-            simImg = float_fbo->toImage();
-            simImg.save("sim5.png");
+                simImg = float_fbo->toImage();
                 sim4= float_fbo->takeTexture();
                 m_SimView4 = QMatrix4x4(viewCam.getViewM());
 
             case 5:
-            simImg = float_fbo->toImage();
-            simImg.save("sim6.png");
+                simImg = float_fbo->toImage();
                 sim5= float_fbo->takeTexture();
                 m_SimView5 = QMatrix4x4(viewCam.getViewM());
 

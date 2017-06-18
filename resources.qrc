@@ -17,5 +17,7 @@
         <file>resources/models/marker/marker.obj</file>
         <file>resources/shaders/shadow.frag</file>
         <file>resources/shaders/shadow.vert</file>
+        <file>resources/shaders/markerDepth.frag</file>
+        <file>resources/shaders/markerDepth.vert</file>
     </qresource>
 </RCC>

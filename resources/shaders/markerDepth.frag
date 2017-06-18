@@ -9,7 +9,8 @@ uniform vec3 Ka;
 uniform vec3 Kd;
 uniform vec3 Ks;
 uniform float shininess;
-uniform float id;
+uniform mat4 P;
+uniform mat4 V;
 
 // Input variables coming from vertex shader, interpolated to this fragment
 in vec3 interpolatedPosition;
@@ -17,8 +18,8 @@ in vec3 interpolatedNormal;
 
 out vec4 fragmentColor;
 
+
 void main()
 {
-    // Calculate final color
-    fragmentColor = vec4(id,gl_FragCoord.z,gl_FragCoord.w, 1.0);
+    fragmentColor = vec4(gl_FragCoord);
 }

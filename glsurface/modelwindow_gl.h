@@ -108,6 +108,7 @@ private:
     QOpenGLShaderProgram m_MarkerTextureProgram;
     QOpenGLShaderProgram m_ObjectPicking;
     QOpenGLShaderProgram m_ShadowMapProgram;
+    QOpenGLShaderProgram m_MarkerDepthProgram;
 
     Pass pass;
 

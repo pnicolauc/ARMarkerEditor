@@ -74,7 +74,9 @@ DISTFILES += \
     resources/shaders/normals.vert \
     resources/shaders/picking.vert \
     resources/shaders/shadow.vert \
-    resources/shaders/shadow.frag
+    resources/shaders/shadow.frag \
+    resources/shaders/markerDepth.vert \
+    resources/shaders/markerDepth.frag
 RESOURCES += \
     resources.qrc
 unix: !macx {
