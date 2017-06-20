@@ -14,14 +14,17 @@ ViewCamera::ViewCamera()
                 cameraPos,    // Camera Position
                 cameraVec,    // Point camera looks towards
                 upVec);   // Up vector
+    shiftPressed=false;
 }
 
 void ViewCamera::walkForward(){
-    cameraPos+=cameraForward/10.0;
+    float shiftValue= ((float)!shiftPressed)+0.01;
+    cameraPos+=cameraForward/(10.0*shiftValue);
 }
 
 void ViewCamera::walkBackward(){
-    cameraPos-=cameraForward/10.0;
+    float shiftValue= ((float)!shiftPressed)+0.01;
+    cameraPos-=cameraForward/(10.0*shiftValue);
 }
 
 QVector3D ViewCamera::getForwardPos(){

@@ -40,6 +40,7 @@ public:
 
     bool runSim;
     int simIndex;
+    int selectedCam;
 
 
 

@@ -21,6 +21,8 @@ Entities::Entities()
                 1.0f,         // aspect ratio
                 0.5f,           // near clipping plane
                 100.0f);       // far clipping plane
+
+    runSim=false;
 }
 
 QMatrix4x4 Entities::getCubeMapProjectionMatrix(){
@@ -77,7 +79,9 @@ void Entities::createCamera(QVector3D pos,QVector3D rot,float angle){
     camera.angle=angle;
     cameras.push_back(camera);
 
-    emit glSignalEmitter->editCamera(cameras.size(),&cameras[cameras.size()-1],&runSim);
+    selectedCam=cameras.size()-1;
+
+    emit glSignalEmitter->editCamera(cameras.size()-1,&cameras[cameras.size()-1],&runSim);
 }
 
 QCursor Entities::getCursor(CreateMode cm){

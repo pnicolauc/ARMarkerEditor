@@ -27,6 +27,8 @@ public:
     void mouseDoubleClickEvent(QMouseEvent *event);
     void mouseReleaseEvent(QMouseEvent* event);
     void keyPressEvent(QKeyEvent * ev);
+    void keyReleaseEvent(QKeyEvent *event);
+
     void mouseMoveEvent(QMouseEvent* event);
     void wheelEvent(QWheelEvent *event);
 
@@ -75,10 +77,6 @@ private:
     GLfloat *normsTex;
 
     int selectedMarker;
-
-
-
-
     QImage fboPickingImage;
     float lastMouseWorldPos[4];
     float lastMouseWorldNormals[4];

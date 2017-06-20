@@ -19,6 +19,7 @@ ModelWindow_GL::ModelWindow_GL(QString filepath, ModelLoader::PathType pathType,
 
 void ModelWindow_GL::initializeGL()
 {
+    viewCam.shiftPressed=false;
     simDirs.push_back( QVector3D(0,0,-1));
     simDirs.push_back( QVector3D(0,0,1));
     simDirs.push_back( QVector3D(1,0,0));
@@ -310,7 +311,7 @@ void ModelWindow_GL::releaseRenderTarget(){
         case Depth:
                 glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
                 glReadPixels(screen.lastMouseX, screen.height-screen.lastMouseY, 1, 1, GL_RGBA, GL_FLOAT, lastMouseWorldPos);
-                //qDebug() << "Position" << " " << lastMouseWorldPos[2]<< " " <<lastMouseWorldPos[0] << " " << lastMouseWorldPos[1] << " " << lastMouseWorldPos[2];
+                qDebug() << "Position" << " " << lastMouseWorldPos[2]<< " " <<lastMouseWorldPos[0] << " " << lastMouseWorldPos[1] << " " << lastMouseWorldPos[2];
             break;
         case Normals:
                 glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
@@ -454,7 +455,13 @@ void ModelWindow_GL::wheelEvent(QWheelEvent *event)
 
     event->accept();
 }
-
+void ModelWindow_GL::keyReleaseEvent(QKeyEvent *event)
+{
+    switch (event->key()) {
+    case  Qt::Key_Shift:
+            viewCam.shiftPressed=false;
+    }
+}
 void ModelWindow_GL::keyPressEvent(QKeyEvent * ev) {
     switch (ev->key()) {
     case  Qt::Key_W:
@@ -476,6 +483,10 @@ void ModelWindow_GL::keyPressEvent(QKeyEvent * ev) {
 
         break;
         }
+    case Qt::Key_Shift:
+        viewCam.shiftPressed=true;
+        break;
+
     default:
         break;
     }
@@ -535,14 +546,16 @@ void ModelWindow_GL::paintGL()
     RenderPass(Depth,true,true,false);
     RenderPass(Picking,true,false,true);
 
-
     if(entities.runSim){
+        entities.simIndex=entities.selectedCam;
 
         QVector3D defUp= QVector3D(0,1,0);
         QVector3D vertUp= QVector3D(0,0,1);
         QVector3D currUp;
         if(simCount<4) currUp = defUp; else currUp= vertUp;
-        viewCam.setupCamera(entities.getCamera(0).position,entities.getCamera(0).position- simDirs[simCount],currUp);
+        viewCam.setupCamera(entities.getCamera(entities.simIndex).position,
+                            entities.getCamera(entities.simIndex).position- simDirs[simCount],
+                            currUp);
         RenderPass(CameraSim,true,true,false);
 
         simCount++;
@@ -681,11 +694,17 @@ void ModelWindow_GL::setShaderUniformNodeValues(QMatrix4x4 objectMatrix){
 
         break;}
     case CameraSim:{
+        m_ShadowMapProgram.setUniformValue( "M", m_model );// Transforming to eye space
+
         m_ShadowMapProgram.setUniformValue( "MV", modelViewMatrix );// Transforming to eye space
         m_ShadowMapProgram.setUniformValue( "N", normalMatrix );    // Transform normal to Eye space
         m_ShadowMapProgram.setUniformValue( "MVP", mvp );           // Matrix for transforming to Clip space
         m_ShadowMapProgram.setUniformValue( "P", entities.getCubeMapProjectionMatrix() );
         m_ShadowMapProgram.setUniformValue( "V", viewCam.getViewM() );
+
+        m_ShadowMapProgram.setUniformValue( "lightPos", entities.getCamera( entities.simIndex).position );
+
+
         break;}
     default:
         break;

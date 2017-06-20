@@ -12,6 +12,8 @@ uniform float shininess;
 uniform mat4 P;
 uniform mat4 V;
 
+uniform vec3 lightPos;
+
 // Input variables coming from vertex shader, interpolated to this fragment
 in vec3 interpolatedPosition;
 in vec3 interpolatedNormal;
@@ -47,7 +49,7 @@ void main()
     vec3 normalVector = normalize(interpolatedNormal);
 
     // Calculate light source vector
-    vec3 lightSourceVector = normalize( lightPosition.xyz - interpolatedPosition);
+    vec3 lightSourceVector = normalize( lightPos- interpolatedPosition);
     float perpendicular =dot( lightSourceVector, normalVector );
 
     vec3 normalColor = vec3(0,0,0);
