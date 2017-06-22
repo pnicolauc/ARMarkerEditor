@@ -13,12 +13,21 @@ uniform mat4 P;
 uniform mat4 V;
 
 uniform vec3 lightPos;
+uniform sampler2D mdTexture0;
+uniform sampler2D mdTexture1;
+uniform sampler2D mdTexture2;
+uniform sampler2D mdTexture3;
+uniform sampler2D mdTexture4;
+uniform sampler2D mdTexture5;
 
 // Input variables coming from vertex shader, interpolated to this fragment
 in vec3 interpolatedPosition;
 in vec3 interpolatedNormal;
 
 out vec4 fragmentColor;
+
+
+
 
 vec3 WorldPosFromDepth(float depth) {
     float z = gl_FragCoord.z * 2.0 - 1.0;
@@ -42,14 +51,33 @@ vec3 WorldPosFromDepth(float depth) {
 
 void main()
 {
+
     float depth = gl_FragCoord.z / gl_FragCoord.w;
     vec3 worldPos= WorldPosFromDepth(depth);
+
 
     // normal has been interpolated, so we need to normalize it
     vec3 normalVector = normalize(interpolatedNormal);
 
     // Calculate light source vector
     vec3 lightSourceVector = normalize( lightPos- interpolatedPosition);
+
+
+    bool biggerX=lightSourceVector.x>0;
+    bool biggerY=lightSourceVector.y>0;
+    bool biggerZ=lightSourceVector.z>0;
+
+    if(biggerX){
+        if(lightSourceVector.y>0){
+
+        }
+
+    }
+
+
+    vec4 mdColor= texture2D(mdTexture0,gl_FragCoord.xy/500.0);
+
+
     float perpendicular =dot( lightSourceVector, normalVector );
 
     vec3 normalColor = vec3(0,0,0);
@@ -62,5 +90,7 @@ void main()
     if(perpendicular< 0.0)
         normalColor= vec3(1,0,0);
 
-    fragmentColor = vec4(normalColor, 1.0);
+    //fragmentColor = vec4(mdColor.rg,0, gl_FragCoord.z);
+    fragmentColor = vec4(normalColor, gl_FragCoord.z);
+
 }

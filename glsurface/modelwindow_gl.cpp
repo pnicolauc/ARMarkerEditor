@@ -19,6 +19,7 @@ ModelWindow_GL::ModelWindow_GL(QString filepath, ModelLoader::PathType pathType,
 
 void ModelWindow_GL::initializeGL()
 {
+    rectCamera=0;
     viewCam.shiftPressed=false;
     simDirs.push_back( QVector3D(0,0,-1));
     simDirs.push_back( QVector3D(0,0,1));
@@ -213,26 +214,41 @@ void ModelWindow_GL::resizeGL(int w, int h)
 }
 
 void ModelWindow_GL::drawCameras(){
+    bool realSim=cameraSim;
+    cameraSim=false;
     for(int i=0;i< entities.cameraCount();i++){
         Camera cam= entities.getCamera(i);
         m_model.setToIdentity();
         m_model.translate(cam.position);
         m_model.rotate(cam.angle,cam.rotation);
         m_vao.bind();
+
         drawNode(m_cameraNode.data(), QMatrix4x4());
+
+        m_model.rotate(90,QVector3D(1,0,0));
+
+        m_model.scale(cam.scale.x(),cam.scale.y(),0);
+
+
+        drawNode(m_markerNode.data(), QMatrix4x4());
+
         m_vao.release();
     }
     m_model.setToIdentity();
+    cameraSim=realSim;
 }
 
 void ModelWindow_GL::drawMarkers(){
     if(pass == Full){
+
         pass=MarkerTex;
         curr_Program=getCurrentProgram();
         shaders.bindProgram(curr_Program,pass,m_lightInfo);
     }
     for(int i=0;i< entities.markerCount();i++){
         Marker mk= entities.getMarker(i);
+
+        glActiveTexture(GL_TEXTURE0 + 0); // Texture unit 0
         mk.texture->bind();
 
         if(pass==MarkerTex){
@@ -281,6 +297,7 @@ void ModelWindow_GL::setupRenderTarget(){
     switch(pass){
         case Depth:
         case Normals:
+        case MarkerDepth:
         case CameraSim:
 
         if(float_fbo==nullptr){
@@ -311,15 +328,44 @@ void ModelWindow_GL::releaseRenderTarget(){
         case Depth:
                 glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
                 glReadPixels(screen.lastMouseX, screen.height-screen.lastMouseY, 1, 1, GL_RGBA, GL_FLOAT, lastMouseWorldPos);
-                qDebug() << "Position" << " " << lastMouseWorldPos[2]<< " " <<lastMouseWorldPos[0] << " " << lastMouseWorldPos[1] << " " << lastMouseWorldPos[2];
+                //qDebug() << "Position" << " " << lastMouseWorldPos[2]<< " " <<lastMouseWorldPos[0] << " " << lastMouseWorldPos[1] << " " << lastMouseWorldPos[2];
             break;
         case Normals:
                 glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
                 glReadPixels(screen.lastMouseX, screen.height-screen.lastMouseY, 1, 1, GL_RGBA, GL_FLOAT, lastMouseWorldNormals);
                 //qDebug() << "Normals:" <<lastMouseWorldNormals[0] << " " << lastMouseWorldNormals[1] << " " << lastMouseWorldNormals[2];
             break;
+        case MarkerDepth:
+        switch (simCount%6) {
+            case 0:
+                simImg = float_fbo->toImage();
+                simImg.save("md.png");
+
+                md0 = float_fbo->takeTexture();
+                break;
+            case 1:
+                md1 = float_fbo->takeTexture();
+                break;
+            case 2:
+                md2 = float_fbo->takeTexture();
+                break;
+            case 3:
+                md3 = float_fbo->takeTexture();
+                break;
+            case 4:
+                md4 = float_fbo->takeTexture();
+                break;
+            case 5:
+                md5 = float_fbo->takeTexture();
+                break;
+
+            default:
+            break;
+        }
+            break;
         case CameraSim:
-        switch (simCount) {
+
+        switch (simCount%6) {
             case 0:
                 simImg = float_fbo->toImage();
                 sim0= float_fbo->takeTexture();
@@ -329,12 +375,12 @@ void ModelWindow_GL::releaseRenderTarget(){
                 simImg = float_fbo->toImage();
                 sim1= float_fbo->takeTexture();
                 m_SimView1 = QMatrix4x4(viewCam.getViewM());
-
+                break;
             case 2:
                 simImg = float_fbo->toImage();
                 sim2= float_fbo->takeTexture();
                 m_SimView2 = QMatrix4x4(viewCam.getViewM());
-
+                break;
             case 3:
                 simImg = float_fbo->toImage();
                 sim3= float_fbo->takeTexture();
@@ -344,12 +390,12 @@ void ModelWindow_GL::releaseRenderTarget(){
                 simImg = float_fbo->toImage();
                 sim4= float_fbo->takeTexture();
                 m_SimView4 = QMatrix4x4(viewCam.getViewM());
-
+                break;
             case 5:
                 simImg = float_fbo->toImage();
                 sim5= float_fbo->takeTexture();
                 m_SimView5 = QMatrix4x4(viewCam.getViewM());
-
+                break;
             default:
             break;
         }
@@ -362,6 +408,7 @@ QOpenGLShaderProgram* ModelWindow_GL::getCurrentProgram(){
         case Depth:return &m_DepthshaderProgram;
         case Picking:return &m_ObjectPicking;
         case MarkerTex:return &m_MarkerTextureProgram;
+        case MarkerDepth: return &m_MarkerDepthProgram;
         case CameraSim:return &m_ShadowMapProgram;
         case Full:return &m_shaderProgram;
     }
@@ -388,15 +435,16 @@ void ModelWindow_GL::RenderPass(Pass currPass,bool renderFBO,bool renderModel,bo
 
     // Bind VAO and draw
     if(renderModel){
+        if(pass==MarkerDepth)m_MarkerDepthProgram.setUniformValue("type",0);
         m_vao.bind();
         drawNode(m_rootNode.data(), QMatrix4x4());
         m_vao.release();
     }
     if(renderEntities){
-        m_vao.bind();
-        drawCameras();
+        if(pass==Full)drawCameras();
+        if(pass==MarkerDepth)m_MarkerDepthProgram.setUniformValue("type",1);
+
         drawMarkers();
-        m_vao.release();
     }
 
     //release renderTargets
@@ -410,6 +458,15 @@ void ModelWindow_GL::mousePressEvent(QMouseEvent* event)
         screen.mouseDrag=true;
     }else if(event->button() == Qt::RightButton){
         screen.mouseRightDrag=true;
+
+        if(createMode==CREATE_CAMERA){
+            rectWorldPos0[0]=lastMouseWorldPos[0];
+            rectWorldPos0[1]=lastMouseWorldPos[1];
+            rectWorldPos0[2]=lastMouseWorldPos[2];
+            rectWorldPos0[3]=lastMouseWorldPos[3];
+            qDebug() << rectWorldPos0[0] << " " << rectWorldPos0[1] << " " << rectWorldPos0[2];
+        }
+
     }
 
 }
@@ -419,6 +476,17 @@ void ModelWindow_GL::mouseReleaseEvent(QMouseEvent* event){
     }
     else if(event->button() == Qt::RightButton){
         screen.mouseRightDrag=false;
+
+        if(createMode==CREATE_CAMERA){
+
+            rectWorldPos1[0]=lastMouseWorldPos[0];
+            rectWorldPos1[1]=lastMouseWorldPos[1];
+            rectWorldPos1[2]=lastMouseWorldPos[2];
+            rectWorldPos1[3]=lastMouseWorldPos[3];
+
+            screen.mouseDClick=true;
+            qDebug() << rectWorldPos1[0] << " " << rectWorldPos1[1] << " " << rectWorldPos1[2];
+        }
     }
 }
 void ModelWindow_GL::mouseMoveEvent(QMouseEvent* event){
@@ -439,7 +507,6 @@ void ModelWindow_GL::mouseDoubleClickEvent(QMouseEvent* event)
 {
     QColor color = QColor(fboPickingImage.pixel(event->x(),event->y()));
     if(color.red()!=255) {
-        qDebug() << "Clicked on Marker";
         selectedMarker = color.red();
        // emit glSignalEmitter->editMarker(selectedMarker,&markers[selectedMarker]);
     }else{
@@ -486,7 +553,8 @@ void ModelWindow_GL::keyPressEvent(QKeyEvent * ev) {
     case Qt::Key_Shift:
         viewCam.shiftPressed=true;
         break;
-
+    case Qt::Key_E:
+        viewCam.eagleView();
     default:
         break;
     }
@@ -503,6 +571,7 @@ void ModelWindow_GL::createEntity(){
     QVector3D pos;
 
     QVector3D rot;
+    QVector2D sc;
     float angle=0.0;
 
     switch (createMode) {
@@ -520,13 +589,20 @@ void ModelWindow_GL::createEntity(){
     }
             break;
         case CREATE_CAMERA:
-            pos= QVector3D(lastMouseWorldPos[0]+lastMouseWorldNormals[0],
-                    lastMouseWorldPos[1]+lastMouseWorldNormals[1],
-                    lastMouseWorldPos[2]+lastMouseWorldNormals[2]);
 
+            pos=QVector3D((rectWorldPos0[0]+rectWorldPos1[0])/2,
+                          (rectWorldPos0[1]+rectWorldPos1[1])/2,
+                          (rectWorldPos0[2]+rectWorldPos1[2])/2);
+
+
+            pos+= (QVector3D(lastMouseWorldNormals[0],
+                            lastMouseWorldNormals[1],
+                            lastMouseWorldNormals[2]));
 
             rot= QVector3D(0.0,0.0,0.0);
-            entities.createCamera(pos,rot,angle);
+            sc= QVector2D(abs(rectWorldPos0[0]-rectWorldPos1[0]),
+                    abs(rectWorldPos0[2]-rectWorldPos1[2]));
+            entities.createCamera(pos,rot,sc,angle);
             break;
         default:
             break;
@@ -541,7 +617,7 @@ void ModelWindow_GL::paintGL()
     //Setup Camera taking into account mouse and key inputs
     viewCam.setupCamera();
     //Render Passes
-    //RenderPass(Pass,Render to fbo?,render Model?,render Entities(cam + markers)?)
+    //RenderPass(Pass,Render to fbo?,render Model?,render Entities(markers)?)
     RenderPass(Normals,true,true,false);
     RenderPass(Depth,true,true,false);
     RenderPass(Picking,true,false,true);
@@ -552,25 +628,23 @@ void ModelWindow_GL::paintGL()
         QVector3D defUp= QVector3D(0,1,0);
         QVector3D vertUp= QVector3D(0,0,1);
         QVector3D currUp;
-        if(simCount<4) currUp = defUp; else currUp= vertUp;
+        if((simCount%6)<4) currUp = defUp; else currUp= vertUp;
         viewCam.setupCamera(entities.getCamera(entities.simIndex).position,
-                            entities.getCamera(entities.simIndex).position- simDirs[simCount],
+                            entities.getCamera(entities.simIndex).position- simDirs[simCount%6],
                             currUp);
-        RenderPass(CameraSim,true,true,false);
+
+        if(simCount<6)RenderPass(MarkerDepth,true,true,true);
+        else RenderPass(CameraSim,true,true,false);
 
         simCount++;
-        if(simCount==6){
+        if(simCount==12){
             cameraSim=true;
             entities.runSim=false;
         }
+        viewCam.setupCamera();
     }
 
-    viewCam.setupCamera();
-
     RenderPass(Full,false,true,true);
-
-    //shadowTexture->release();
-
     //Create Camera or Marker
     if(screen.mouseDClick){
         createEntity();
@@ -643,6 +717,17 @@ void ModelWindow_GL::setShaderUniformNodeValues(QMatrix4x4 objectMatrix){
         m_MarkerTextureProgram.setUniformValue( "create_mode", create_mode );
 
         break;
+    case MarkerDepth:
+        m_MarkerDepthProgram.setUniformValue( "MV", modelViewMatrix );// Transforming to eye space
+        m_MarkerDepthProgram.setUniformValue( "N", normalMatrix );    // Transform normal to Eye space
+        m_MarkerDepthProgram.setUniformValue( "MVP", mvp );           // Matrix for transforming to Clip space
+        m_MarkerDepthProgram.setUniformValue( "P", screen.m_projection );
+        m_MarkerDepthProgram.setUniformValue( "V", viewCam.getViewM() );
+
+
+        m_MarkerDepthProgram.setUniformValue( "lightPos", entities.getCamera( entities.simIndex).position );
+
+        break;
     case Full:{
         QMatrix4x4 sim_mvp0 = entities.getCubeMapProjectionMatrix() * (m_SimView0 *modelMatrix);
         QMatrix4x4 sim_mvp1 = entities.getCubeMapProjectionMatrix() * (m_SimView1 *modelMatrix);
@@ -704,7 +789,29 @@ void ModelWindow_GL::setShaderUniformNodeValues(QMatrix4x4 objectMatrix){
 
         m_ShadowMapProgram.setUniformValue( "lightPos", entities.getCamera( entities.simIndex).position );
 
+        m_ShadowMapProgram.setUniformValue("mdTexture0",0);
+        m_ShadowMapProgram.setUniformValue("mdTexture1",1);
+        m_ShadowMapProgram.setUniformValue("mdTexture2",2);
+        m_ShadowMapProgram.setUniformValue("mdTexture3",3);
+        m_ShadowMapProgram.setUniformValue("mdTexture4",4);
+        m_ShadowMapProgram.setUniformValue("mdTexture5",5);
+        glActiveTexture(GL_TEXTURE0 + 0); // Texture unit 0
+        glBindTexture(GL_TEXTURE_2D, md0);
 
+        glActiveTexture(GL_TEXTURE0 + 1); // Texture unit 1
+        glBindTexture(GL_TEXTURE_2D, md1);
+
+        glActiveTexture(GL_TEXTURE0 + 2); // Texture unit 2
+        glBindTexture(GL_TEXTURE_2D, md2);
+
+        glActiveTexture(GL_TEXTURE0 + 3); // Texture unit 3
+        glBindTexture(GL_TEXTURE_2D, md3);
+
+        glActiveTexture(GL_TEXTURE0 + 4); // Texture unit 4
+        glBindTexture(GL_TEXTURE_2D, md4);
+
+        glActiveTexture(GL_TEXTURE0 + 5); // Texture unit 5
+        glBindTexture(GL_TEXTURE_2D, md5);
         break;}
     default:
         break;

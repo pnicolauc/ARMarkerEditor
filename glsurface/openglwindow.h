@@ -18,6 +18,8 @@ struct Camera
 {
     QVector3D position;
     QVector3D rotation;
+    QVector2D scale;
+
     float angle;
 };
 

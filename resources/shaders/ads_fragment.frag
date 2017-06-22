@@ -159,8 +159,11 @@ void main()
 
     }
 
-    simVals/=5;
-    diffuseContribution.rgb = simVals.rgb;
+    simVals/=4;
+
+    if(simVals.r!=0.0 || simVals.g!=0.0 || simVals.b!=0.0 )
+        diffuseContribution.rgb = simVals.rgb;
+
 
     break;
     }else diffuseContribution = Kd * dot( lightSourceVector, normalVector);

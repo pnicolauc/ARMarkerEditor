@@ -14,5 +14,6 @@ struct Screen{
     bool mouseDrag;
     bool mouseRightDrag;
 
+
     QMatrix4x4 m_projection;
 };

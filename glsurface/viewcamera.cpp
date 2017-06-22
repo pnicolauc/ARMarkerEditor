@@ -32,6 +32,10 @@ QVector3D ViewCamera::getForwardPos(){
 }
 
 
+void ViewCamera::eagleView(){
+    cameraForward=QVector3D(0.0,-0.99,0.0);
+}
+
 void ViewCamera::setupCamera(QVector3D eye,QVector3D center,QVector3D up){
 
     if(up.x()==0.0 && up.y()==0.0 && up.z()==0.0) {

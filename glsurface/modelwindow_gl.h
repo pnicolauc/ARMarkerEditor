@@ -82,6 +82,18 @@ private:
     float lastMouseWorldNormals[4];
 
 
+    int rectCamera;
+    float rectWorldPos0[4];
+    float rectWorldPos1[4];
+
+
+    GLuint md0;
+    GLuint md1;
+    GLuint md2;
+    GLuint md3;
+    GLuint md4;
+    GLuint md5;
+
     GLuint sim0;
     GLuint sim1;
     GLuint sim2;
@@ -90,6 +102,7 @@ private:
     GLuint sim5;
     bool cameraSim;
     int simCount;
+
     QVector<QVector3D> simDirs;
 
     CreateMode createMode;

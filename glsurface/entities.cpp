@@ -72,11 +72,12 @@ Camera Entities::getCamera(int index){
 }
 
 
-void Entities::createCamera(QVector3D pos,QVector3D rot,float angle){
+void Entities::createCamera(QVector3D pos,QVector3D rot,QVector2D scale,float angle){
     Camera camera;
     camera.position= pos;
     camera.rotation= rot;
     camera.angle=angle;
+    camera.scale=scale;
     cameras.push_back(camera);
 
     selectedCam=cameras.size()-1;

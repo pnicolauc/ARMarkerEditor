@@ -18,6 +18,7 @@ public:
     void resize(int h,int w);
     void setupCamera(QVector3D eye=QVector3D(0,0,0),QVector3D center=QVector3D(0,0,0),QVector3D up=QVector3D(0,0,0));
     QVector3D getForwardPos();
+    void eagleView();
 
     bool shiftPressed;
 
