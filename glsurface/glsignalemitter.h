@@ -12,7 +12,7 @@ public:
 
 
 signals:
-    Camera* editCamera(int index,Camera* camera,bool* runSim);
+    Camera* editCamera(int index,Camera* camera,bool* runSim,CameraParams* camParams );
     Marker* editMarker(int index,Marker* camera);
 
 public slots:

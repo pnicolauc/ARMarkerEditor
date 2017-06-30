@@ -54,12 +54,17 @@ void ViewCamera::setupCamera(QVector3D eye,QVector3D center,QVector3D up){
 
 void ViewCamera::mouseRotate(float valx,float valy){
     //Left/Right Camera Rotation
+
     cameraForward = rotate(cameraForward,upVec, -valx);
+    cameraForward.normalize();
 
     //Up/Down Camera Rotation
     QVector3D upV= QVector3D::crossProduct(upVec,cameraForward);
     rotate(upVec, upV, valy);
     cameraForward =rotate(cameraForward, upV, valy);
+
+    cameraForward.normalize();
+
 }
 
 

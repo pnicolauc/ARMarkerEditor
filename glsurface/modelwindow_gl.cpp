@@ -19,6 +19,10 @@ ModelWindow_GL::ModelWindow_GL(QString filepath, ModelLoader::PathType pathType,
 
 void ModelWindow_GL::initializeGL()
 {
+
+    rectTopLeft=false;
+    viewCam.fpsView=false;
+
     rectCamera=0;
     viewCam.shiftPressed=false;
     simDirs.push_back( QVector3D(0,0,-1));
@@ -31,7 +35,7 @@ void ModelWindow_GL::initializeGL()
     screen.mouseDrag=false;
     screen.mouseDClick=false;
     cameraSim = false;
-    entities.runSim = false;
+
 
     createMode= NONE;
     create_mode = false;
@@ -41,7 +45,7 @@ void ModelWindow_GL::initializeGL()
     viewCam = ViewCamera();
     shaders = Shaders();
     scroll=0;
-    selectedMarker=-1;
+    selectedEntity=-1;
     this->initializeOpenGLFunctions();
 
     float aspect = 1.0f;
@@ -214,21 +218,39 @@ void ModelWindow_GL::resizeGL(int w, int h)
 }
 
 void ModelWindow_GL::drawCameras(){
+    if(pass==Full){
+        pass=MarkerTex;
+        curr_Program=getCurrentProgram();
+        shaders.bindProgram(curr_Program,pass,m_lightInfo);
+    }
     bool realSim=cameraSim;
     cameraSim=false;
+
     for(int i=0;i< entities.cameraCount();i++){
+
+        if(pass==MarkerTex){
+            glActiveTexture(GL_TEXTURE0 + 0); // Texture unit 0
+            entities.getCameraTexture()->bind();
+            if(selectedEntity==-i-1)
+                m_MarkerTextureProgram.setUniformValue( "selected", true );
+            else
+                m_MarkerTextureProgram.setUniformValue( "selected", false );
+        }
+        if(pass == Picking){
+            m_ObjectPicking.setUniformValue( "id",(float)((-i-1)/255.0) );
+        }
         Camera cam= entities.getCamera(i);
         m_model.setToIdentity();
         m_model.translate(cam.position);
         m_model.rotate(cam.angle,cam.rotation);
         m_vao.bind();
 
+        m_model.translate(0.0,entities.camParams.height,0.0);
         drawNode(m_cameraNode.data(), QMatrix4x4());
-
+        m_model.translate(0.0,-entities.camParams.height,0.0);
         m_model.rotate(90,QVector3D(1,0,0));
 
         m_model.scale(cam.scale.x(),cam.scale.y(),0);
-
 
         drawNode(m_markerNode.data(), QMatrix4x4());
 
@@ -252,7 +274,7 @@ void ModelWindow_GL::drawMarkers(){
         mk.texture->bind();
 
         if(pass==MarkerTex){
-            if(selectedMarker==i)
+            if(selectedEntity==i)
                 m_MarkerTextureProgram.setUniformValue( "selected", true );
             else
                 m_MarkerTextureProgram.setUniformValue( "selected", false );
@@ -297,7 +319,6 @@ void ModelWindow_GL::setupRenderTarget(){
     switch(pass){
         case Depth:
         case Normals:
-        case MarkerDepth:
         case CameraSim:
 
         if(float_fbo==nullptr){
@@ -309,6 +330,8 @@ void ModelWindow_GL::setupRenderTarget(){
         float_fbo->bind();
             break;
         case Picking:
+        case MarkerDepth:
+
         if(int_fbo==nullptr){
                         QOpenGLFramebufferObjectFormat format;
                         format.setAttachment(QOpenGLFramebufferObject::CombinedDepthStencil);
@@ -323,40 +346,54 @@ void ModelWindow_GL::releaseRenderTarget(){
     switch (pass) {
         case Picking:
             fboPickingImage = int_fbo->toImage();
-            fboPickingImage.save("fbo.png");
+            //fboPickingImage.save("fbo.png");
             break;
         case Depth:
                 glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
                 glReadPixels(screen.lastMouseX, screen.height-screen.lastMouseY, 1, 1, GL_RGBA, GL_FLOAT, lastMouseWorldPos);
+                if(rectTopLeft){
+                    glReadPixels(rectTopLeftX, screen.height-screen.lastMouseY, 1, 1, GL_RGBA, GL_FLOAT, rectWorldPos3);
+                    glReadPixels(screen.lastMouseX, screen.height-rectTopLeftY, 1, 1, GL_RGBA, GL_FLOAT, rectWorldPos4);
+
+                }
                 //qDebug() << "Position" << " " << lastMouseWorldPos[2]<< " " <<lastMouseWorldPos[0] << " " << lastMouseWorldPos[1] << " " << lastMouseWorldPos[2];
             break;
         case Normals:
                 glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
                 glReadPixels(screen.lastMouseX, screen.height-screen.lastMouseY, 1, 1, GL_RGBA, GL_FLOAT, lastMouseWorldNormals);
                 //qDebug() << "Normals:" <<lastMouseWorldNormals[0] << " " << lastMouseWorldNormals[1] << " " << lastMouseWorldNormals[2];
-            break;
+        break;
         case MarkerDepth:
         switch (simCount%6) {
             case 0:
-                simImg = float_fbo->toImage();
-                simImg.save("md.png");
+                imagemd0 = int_fbo->toImage().mirrored(true,false);
 
-                md0 = float_fbo->takeTexture();
+                md0 = int_fbo->takeTexture();
                 break;
             case 1:
-                md1 = float_fbo->takeTexture();
+                imagemd1 = int_fbo->toImage().mirrored(true,false);
+
+                md1 = int_fbo->takeTexture();
                 break;
             case 2:
-                md2 = float_fbo->takeTexture();
+                imagemd2 = int_fbo->toImage().mirrored(true,false);
+
+                md2 = int_fbo->takeTexture();
                 break;
             case 3:
-                md3 = float_fbo->takeTexture();
+                imagemd3 = int_fbo->toImage().mirrored(true,false);
+
+                md3 = int_fbo->takeTexture();
                 break;
             case 4:
-                md4 = float_fbo->takeTexture();
+                imagemd4 = int_fbo->toImage().mirrored(true,false);
+
+                md4 = int_fbo->takeTexture();
                 break;
             case 5:
-                md5 = float_fbo->takeTexture();
+                imagemd5 = int_fbo->toImage().mirrored(false,true);
+
+                md5 = int_fbo->takeTexture();
                 break;
 
             default:
@@ -435,14 +472,14 @@ void ModelWindow_GL::RenderPass(Pass currPass,bool renderFBO,bool renderModel,bo
 
     // Bind VAO and draw
     if(renderModel){
-        if(pass==MarkerDepth)m_MarkerDepthProgram.setUniformValue("type",0);
+        if(pass==MarkerDepth)m_MarkerDepthProgram.setUniformValue("type",0.0f);
         m_vao.bind();
         drawNode(m_rootNode.data(), QMatrix4x4());
         m_vao.release();
     }
     if(renderEntities){
-        if(pass==Full)drawCameras();
-        if(pass==MarkerDepth)m_MarkerDepthProgram.setUniformValue("type",1);
+        if(pass==Full || pass==Picking)drawCameras();
+        if(pass==MarkerDepth)m_MarkerDepthProgram.setUniformValue("type",1.0f);
 
         drawMarkers();
     }
@@ -457,15 +494,15 @@ void ModelWindow_GL::mousePressEvent(QMouseEvent* event)
     if(event->button() == Qt::LeftButton){
         screen.mouseDrag=true;
     }else if(event->button() == Qt::RightButton){
-        screen.mouseRightDrag=true;
 
         if(createMode==CREATE_CAMERA){
             rectWorldPos0[0]=lastMouseWorldPos[0];
             rectWorldPos0[1]=lastMouseWorldPos[1];
             rectWorldPos0[2]=lastMouseWorldPos[2];
             rectWorldPos0[3]=lastMouseWorldPos[3];
-            qDebug() << rectWorldPos0[0] << " " << rectWorldPos0[1] << " " << rectWorldPos0[2];
-        }
+            rectTopLeft=true;
+        }else screen.mouseRightDrag=true;
+
 
     }
 
@@ -475,7 +512,6 @@ void ModelWindow_GL::mouseReleaseEvent(QMouseEvent* event){
         screen.mouseDrag= false;
     }
     else if(event->button() == Qt::RightButton){
-        screen.mouseRightDrag=false;
 
         if(createMode==CREATE_CAMERA){
 
@@ -486,7 +522,8 @@ void ModelWindow_GL::mouseReleaseEvent(QMouseEvent* event){
 
             screen.mouseDClick=true;
             qDebug() << rectWorldPos1[0] << " " << rectWorldPos1[1] << " " << rectWorldPos1[2];
-        }
+        } else  screen.mouseRightDrag=false;
+
     }
 }
 void ModelWindow_GL::mouseMoveEvent(QMouseEvent* event){
@@ -506,12 +543,27 @@ void ModelWindow_GL::mouseMoveEvent(QMouseEvent* event){
 void ModelWindow_GL::mouseDoubleClickEvent(QMouseEvent* event)
 {
     QColor color = QColor(fboPickingImage.pixel(event->x(),event->y()));
-    if(color.red()!=255) {
-        selectedMarker = color.red();
-       // emit glSignalEmitter->editMarker(selectedMarker,&markers[selectedMarker]);
+
+    if(color.green()!=255 && createMode==NONE) {
+        selectedEntity =-color.green();
+
+        emit entities.glSignalEmitter->editCamera(-selectedEntity-1,&entities.cameras[-selectedEntity-1],&entities.runSim,&entities.camParams);
+    }
+    else if(color.red()!=255 && createMode==NONE) {
+        selectedEntity = color.red();
+
+        emit entities.glSignalEmitter->editMarker(selectedEntity,&entities.markers[selectedEntity]);
     }else{
         screen.mouseSelectedX=event->x();
         screen.mouseSelectedY=event->y();
+        rectWorldPos0[0]=0;
+        rectWorldPos0[1]=0;
+        rectWorldPos0[2]=0;
+        rectWorldPos0[3]=0;
+        rectWorldPos1[0]=0;
+        rectWorldPos1[1]=0;
+        rectWorldPos1[2]=0;
+        rectWorldPos1[3]=0;
         screen.mouseDClick=true;
     }
 }
@@ -550,6 +602,9 @@ void ModelWindow_GL::keyPressEvent(QKeyEvent * ev) {
 
         break;
         }
+    case Qt::Key_F:
+        viewCam.fpsView=!viewCam.fpsView;
+
     case Qt::Key_Shift:
         viewCam.shiftPressed=true;
         break;
@@ -584,7 +639,7 @@ void ModelWindow_GL::createEntity(){
 
             pos= QVector3D(lastMouseWorldPos[0],lastMouseWorldPos[1],lastMouseWorldPos[2]);
             rot= cross;
-            selectedMarker=entities.createMarker(pos,rot,angle*57.2957795);
+            selectedEntity=entities.createMarker(pos,rot,angle*57.2957795);
             create_mode=false;
     }
             break;
@@ -597,12 +652,13 @@ void ModelWindow_GL::createEntity(){
 
             pos+= (QVector3D(lastMouseWorldNormals[0],
                             lastMouseWorldNormals[1],
-                            lastMouseWorldNormals[2]));
+                            lastMouseWorldNormals[2])/10.0);
 
             rot= QVector3D(0.0,0.0,0.0);
             sc= QVector2D(abs(rectWorldPos0[0]-rectWorldPos1[0]),
                     abs(rectWorldPos0[2]-rectWorldPos1[2]));
-            entities.createCamera(pos,rot,sc,angle);
+            selectedEntity=entities.createCamera(pos,rot,sc,angle);
+            rectTopLeft=false;
             break;
         default:
             break;
@@ -623,14 +679,55 @@ void ModelWindow_GL::paintGL()
     RenderPass(Picking,true,false,true);
 
     if(entities.runSim){
+        if(simCount==6){
+
+            imagemd0.save("md0.png");
+            imagemd1.save("md1.png");
+            imagemd2.save("md2.png");
+            imagemd3.save("md3.png");
+            imagemd4.save("md4.png");
+            imagemd5.save("md5.png");
+
+            cubeMD = new QOpenGLTexture(QOpenGLTexture::TargetCubeMap);
+            cubeMD->create();
+            cubeMD->setSize(imagemd0.width(), imagemd0.height(), imagemd0.depth());
+            cubeMD->setFormat(QOpenGLTexture::RGBA8_UNorm);
+            cubeMD->allocateStorage();
+
+            cubeMD->setData(0, 0, QOpenGLTexture::CubeMapPositiveX,
+                                    QOpenGLTexture::RGBA, QOpenGLTexture::UInt8,
+                                    (const void*)imagemd3.constBits(), 0);
+            cubeMD->setData(0, 0, QOpenGLTexture::CubeMapPositiveY,
+                                    QOpenGLTexture::RGBA, QOpenGLTexture::UInt8,
+                                    (const void*)imagemd5.constBits(), 0);
+            cubeMD->setData(0, 0, QOpenGLTexture::CubeMapPositiveZ,
+                                    QOpenGLTexture::RGBA, QOpenGLTexture::UInt8,
+                                    (const void*)imagemd0.constBits(), 0);
+            cubeMD->setData(0, 0, QOpenGLTexture::CubeMapNegativeX,
+                                    QOpenGLTexture::RGBA, QOpenGLTexture::UInt8,
+                                    (const void*)imagemd2.constBits(), 0);
+            cubeMD->setData(0, 0, QOpenGLTexture::CubeMapNegativeY,
+                                    QOpenGLTexture::RGBA, QOpenGLTexture::UInt8,
+                                    (const void*)imagemd4.constBits(), 0);
+            cubeMD->setData(0, 0, QOpenGLTexture::CubeMapNegativeZ,
+                                    QOpenGLTexture::RGBA, QOpenGLTexture::UInt8,
+                                    (const void*)imagemd1.constBits(), 0);
+            cubeMD->setWrapMode(QOpenGLTexture::ClampToEdge);
+            cubeMD->setMinificationFilter(QOpenGLTexture::LinearMipMapLinear);
+            cubeMD->setMagnificationFilter(QOpenGLTexture::LinearMipMapLinear);
+            cubeMD->generateMipMaps();
+        }
         entities.simIndex=entities.selectedCam;
 
         QVector3D defUp= QVector3D(0,1,0);
         QVector3D vertUp= QVector3D(0,0,1);
         QVector3D currUp;
         if((simCount%6)<4) currUp = defUp; else currUp= vertUp;
-        viewCam.setupCamera(entities.getCamera(entities.simIndex).position,
-                            entities.getCamera(entities.simIndex).position- simDirs[simCount%6],
+
+        QVector3D camSimPos=entities.getCamera(entities.simIndex).position+QVector3D(0.0,entities.camParams.height,0.0);
+
+        viewCam.setupCamera(camSimPos,
+                            camSimPos- simDirs[simCount%6],
                             currUp);
 
         if(simCount<6)RenderPass(MarkerDepth,true,true,true);
@@ -650,7 +747,7 @@ void ModelWindow_GL::paintGL()
         createEntity();
         screen.mouseDClick=false;
     }
-    if(screen.mouseRightDrag && selectedMarker>=0){
+    if(screen.mouseRightDrag && selectedEntity>=0){
         QVector3D defRot=QVector3D(0.0,0.0,-1.0);
         QVector3D normalV = QVector3D(lastMouseWorldNormals[0],lastMouseWorldNormals[1],lastMouseWorldNormals[2]);
         QVector3D cross= QVector3D::crossProduct(defRot,normalV);
@@ -659,20 +756,19 @@ void ModelWindow_GL::paintGL()
         float angle= acos (dot);
 
         if(lastMouseWorldPos[0]==1 && lastMouseWorldPos[1]==1 && lastMouseWorldPos[2]==1)
-           entities.getMarkerPtr(selectedMarker)->position=viewCam.getForwardPos();
+           entities.getMarkerPtr(selectedEntity)->position=viewCam.getForwardPos();
         else
-           entities.getMarkerPtr(selectedMarker)->position=QVector3D(lastMouseWorldPos[0],lastMouseWorldPos[1],lastMouseWorldPos[2]);
+           entities.getMarkerPtr(selectedEntity)->position=QVector3D(lastMouseWorldPos[0],lastMouseWorldPos[1],lastMouseWorldPos[2]);
        if(scroll!=0){
-           entities.getMarkerPtr(selectedMarker)->position+=QVector3D(scroll*lastMouseWorldNormals[0],
+           entities.getMarkerPtr(selectedEntity)->position+=QVector3D(scroll*lastMouseWorldNormals[0],
                                                                    scroll*lastMouseWorldNormals[1],
                                                                    scroll*lastMouseWorldNormals[2]);
        }
 
-       qDebug() << entities.getMarkerPtr(selectedMarker)->position;
-       entities.getMarkerPtr(selectedMarker)->rotation=cross;
-       entities.getMarkerPtr(selectedMarker)->angle=angle*57.2957795;
+       entities.getMarkerPtr(selectedEntity)->rotation=cross;
+       entities.getMarkerPtr(selectedEntity)->angle=angle*57.2957795;
 
-       entities.emitChangedMarkerSignal(selectedMarker);
+       entities.emitChangedMarkerSignal(selectedEntity);
 
     }
 
@@ -683,7 +779,7 @@ void ModelWindow_GL::setShaderUniformNodeValues(QMatrix4x4 objectMatrix){
     QMatrix4x4 modelViewMatrix = viewCam.getViewM() * modelMatrix;
     QMatrix3x3 normalMatrix = modelViewMatrix.normalMatrix();
     QMatrix4x4 mvp;
-    if(pass!=CameraSim)
+    if(pass!=CameraSim && pass!=MarkerDepth)
         mvp = screen.m_projection * modelViewMatrix;
     else mvp = entities.getCubeMapProjectionMatrix() * modelViewMatrix;
     switch (pass) {
@@ -717,17 +813,20 @@ void ModelWindow_GL::setShaderUniformNodeValues(QMatrix4x4 objectMatrix){
         m_MarkerTextureProgram.setUniformValue( "create_mode", create_mode );
 
         break;
-    case MarkerDepth:
+    case MarkerDepth:{
         m_MarkerDepthProgram.setUniformValue( "MV", modelViewMatrix );// Transforming to eye space
         m_MarkerDepthProgram.setUniformValue( "N", normalMatrix );    // Transform normal to Eye space
         m_MarkerDepthProgram.setUniformValue( "MVP", mvp );           // Matrix for transforming to Clip space
-        m_MarkerDepthProgram.setUniformValue( "P", screen.m_projection );
+        m_MarkerDepthProgram.setUniformValue( "P", entities.getCubeMapProjectionMatrix() );
         m_MarkerDepthProgram.setUniformValue( "V", viewCam.getViewM() );
+        m_MarkerDepthProgram.setUniformValue( "M", m_model );// Transforming to eye space
 
 
-        m_MarkerDepthProgram.setUniformValue( "lightPos", entities.getCamera( entities.simIndex).position );
+        QVector3D camSimPos=entities.getCamera(entities.simIndex).position+QVector3D(0.0,entities.camParams.height,0.0);
 
-        break;
+        m_MarkerDepthProgram.setUniformValue( "lightPos", camSimPos );
+
+        break;}
     case Full:{
         QMatrix4x4 sim_mvp0 = entities.getCubeMapProjectionMatrix() * (m_SimView0 *modelMatrix);
         QMatrix4x4 sim_mvp1 = entities.getCubeMapProjectionMatrix() * (m_SimView1 *modelMatrix);
@@ -786,32 +885,16 @@ void ModelWindow_GL::setShaderUniformNodeValues(QMatrix4x4 objectMatrix){
         m_ShadowMapProgram.setUniformValue( "MVP", mvp );           // Matrix for transforming to Clip space
         m_ShadowMapProgram.setUniformValue( "P", entities.getCubeMapProjectionMatrix() );
         m_ShadowMapProgram.setUniformValue( "V", viewCam.getViewM() );
+        m_ShadowMapProgram.setUniformValue( "horizontalAOV", entities.camParams.horizontalAOV );
+        m_ShadowMapProgram.setUniformValue( "verticalAOV", entities.camParams.verticalAOV );
 
-        m_ShadowMapProgram.setUniformValue( "lightPos", entities.getCamera( entities.simIndex).position );
+        QVector3D camSimPos=entities.getCamera(entities.simIndex).position+QVector3D(0.0,entities.camParams.height,0.0);
 
-        m_ShadowMapProgram.setUniformValue("mdTexture0",0);
-        m_ShadowMapProgram.setUniformValue("mdTexture1",1);
-        m_ShadowMapProgram.setUniformValue("mdTexture2",2);
-        m_ShadowMapProgram.setUniformValue("mdTexture3",3);
-        m_ShadowMapProgram.setUniformValue("mdTexture4",4);
-        m_ShadowMapProgram.setUniformValue("mdTexture5",5);
-        glActiveTexture(GL_TEXTURE0 + 0); // Texture unit 0
-        glBindTexture(GL_TEXTURE_2D, md0);
+        m_ShadowMapProgram.setUniformValue( "lightPos", camSimPos );
 
-        glActiveTexture(GL_TEXTURE0 + 1); // Texture unit 1
-        glBindTexture(GL_TEXTURE_2D, md1);
+        cubeMD->bind();
+        m_ShadowMapProgram.setUniformValue("mdCube",0);
 
-        glActiveTexture(GL_TEXTURE0 + 2); // Texture unit 2
-        glBindTexture(GL_TEXTURE_2D, md2);
-
-        glActiveTexture(GL_TEXTURE0 + 3); // Texture unit 3
-        glBindTexture(GL_TEXTURE_2D, md3);
-
-        glActiveTexture(GL_TEXTURE0 + 4); // Texture unit 4
-        glBindTexture(GL_TEXTURE_2D, md4);
-
-        glActiveTexture(GL_TEXTURE0 + 5); // Texture unit 5
-        glBindTexture(GL_TEXTURE_2D, md5);
         break;}
     default:
         break;

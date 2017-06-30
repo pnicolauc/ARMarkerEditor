@@ -15,6 +15,9 @@ Entities::Entities()
     defaultMarkerImage=new QImage(QString(":/resources/textures/marker.jpg"));
     defaultMarkerTexture= new QOpenGLTexture(defaultMarkerImage->mirrored());
 
+    defaultCameraImage=new QImage(QString(":/resources/textures/walkable.jpg"));
+    defaultCameraTexture= new QOpenGLTexture(defaultCameraImage->mirrored());
+
     m_projection_cubemap.setToIdentity();
     m_projection_cubemap.perspective(
                 90.0f,          // field of vision
@@ -23,10 +26,18 @@ Entities::Entities()
                 100.0f);       // far clipping plane
 
     runSim=false;
+    camParams.height=1.5;
+    camParams.focalLength=15.0;
+    camParams.horizontalAOV=60.0;
+    camParams.verticalAOV=60.0;
 }
 
 QMatrix4x4 Entities::getCubeMapProjectionMatrix(){
     return m_projection_cubemap;
+}
+
+QOpenGLTexture* Entities::getCameraTexture(){
+ return defaultCameraTexture;
 }
 
 int Entities::createMarker(QVector3D pos,QVector3D rot,float angle){
@@ -72,7 +83,7 @@ Camera Entities::getCamera(int index){
 }
 
 
-void Entities::createCamera(QVector3D pos,QVector3D rot,QVector2D scale,float angle){
+int Entities::createCamera(QVector3D pos,QVector3D rot,QVector2D scale,float angle){
     Camera camera;
     camera.position= pos;
     camera.rotation= rot;
@@ -82,7 +93,8 @@ void Entities::createCamera(QVector3D pos,QVector3D rot,QVector2D scale,float an
 
     selectedCam=cameras.size()-1;
 
-    emit glSignalEmitter->editCamera(cameras.size()-1,&cameras[cameras.size()-1],&runSim);
+    emit glSignalEmitter->editCamera(cameras.size()-1,&cameras[cameras.size()-1],&runSim,&camParams);
+    return  ((-cameras.size()));
 }
 
 QCursor Entities::getCursor(CreateMode cm){

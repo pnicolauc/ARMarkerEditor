@@ -19,6 +19,10 @@ out vec4 fragmentColor;
 
 void main()
 {
+    float marker=1.0;
+    float camera=1.0;
+    if(id<0.0) camera = -id;
+    else marker=id;
     // Calculate final color
-    fragmentColor = vec4(id,gl_FragCoord.z,gl_FragCoord.w, 1.0);
+    fragmentColor = vec4(marker,camera,gl_FragCoord.w, camera);
 }

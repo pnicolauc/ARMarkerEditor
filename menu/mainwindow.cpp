@@ -98,7 +98,7 @@ void MainWindow::addGLWindow(){
 
 void MainWindow::setupGLSignals(){
     connect(modelWindow->entities.glSignalEmitter,SIGNAL(editMarker(int,Marker*)), this, SLOT(addMarkerMenu(int,Marker*)));
-    connect(modelWindow->entities.glSignalEmitter,SIGNAL(editCamera(int,Camera*,bool*)), this, SLOT(addCameraMenu(int,Camera*,bool*)));
+    connect(modelWindow->entities.glSignalEmitter,SIGNAL(editCamera(int,Camera*,bool*,CameraParams*)), this, SLOT(addCameraMenu(int,Camera*,bool*,CameraParams*)));
 
 }
 
@@ -113,12 +113,12 @@ void MainWindow::addMarkerMenu(int index,Marker* marker){
     connect(markermenu,SIGNAL(markerChanged(int,Marker*)), modelWindow, SLOT(_markerChanged(int,Marker*)));
 }
 
-void MainWindow::addCameraMenu(int index,Camera* camera,bool* runSim){
+void MainWindow::addCameraMenu(int index,Camera* camera,bool* runSim,CameraParams* camParams){
     if(objectEditor!=nullptr) objectEditor->deleteLater();
 
     CameraMenu* cameramenu= new CameraMenu(this);
     objectEditor = cameramenu;
-    cameramenu->editCamera(index,camera,runSim);
+    cameramenu->editCamera(index,camera,runSim,camParams);
     ui->objectEditor->addWidget(cameramenu);
 
 }

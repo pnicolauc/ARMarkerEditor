@@ -13,12 +13,11 @@ uniform mat4 P;
 uniform mat4 V;
 
 uniform vec3 lightPos;
-uniform sampler2D mdTexture0;
-uniform sampler2D mdTexture1;
-uniform sampler2D mdTexture2;
-uniform sampler2D mdTexture3;
-uniform sampler2D mdTexture4;
-uniform sampler2D mdTexture5;
+
+
+uniform samplerCube mdCube;
+uniform float horizontalAOV;
+uniform float verticalAOV;
 
 // Input variables coming from vertex shader, interpolated to this fragment
 in vec3 interpolatedPosition;
@@ -27,6 +26,8 @@ in vec3 interpolatedNormal;
 out vec4 fragmentColor;
 
 
+
+#define M_PI 3.1415926535897932384626433832795
 
 
 vec3 WorldPosFromDepth(float depth) {
@@ -48,6 +49,19 @@ vec3 WorldPosFromDepth(float depth) {
     return worldSpacePosition.xyz;
 }
 
+vec3 rotate(vec3 Vx,vec3 axis, float angle) {
+
+  float ca = cos(angle*(M_PI/180));
+  float sa = sin(angle*(M_PI/180));
+
+  vec3 cross = cross(Vx,axis);
+
+  float dot= dot(axis,Vx);
+
+  vec3 r=Vx*ca + cross*sa + dot*axis*(1-ca);
+
+  return r;
+}
 
 void main()
 {
@@ -60,25 +74,9 @@ void main()
     vec3 normalVector = normalize(interpolatedNormal);
 
     // Calculate light source vector
-    vec3 lightSourceVector = normalize( lightPos- interpolatedPosition);
+    vec3 lightSourceVector = normalize( interpolatedPosition-lightPos);
 
-
-    bool biggerX=lightSourceVector.x>0;
-    bool biggerY=lightSourceVector.y>0;
-    bool biggerZ=lightSourceVector.z>0;
-
-    if(biggerX){
-        if(lightSourceVector.y>0){
-
-        }
-
-    }
-
-
-    vec4 mdColor= texture2D(mdTexture0,gl_FragCoord.xy/500.0);
-
-
-    float perpendicular =dot( lightSourceVector, normalVector );
+    float perpendicular =dot(-lightSourceVector, normalVector );
 
     vec3 normalColor = vec3(0,0,0);
     if(perpendicular > 0.3)
@@ -90,7 +88,23 @@ void main()
     if(perpendicular< 0.0)
         normalColor= vec3(1,0,0);
 
-    //fragmentColor = vec4(mdColor.rg,0, gl_FragCoord.z);
+    float stepX = horizontalAOV/20.0;
+    float stepY = verticalAOV/20.0;
+
+    for(float xAngle=-horizontalAOV+stepX;xAngle<horizontalAOV;xAngle+=stepX){
+        vec3 xRot =rotate(lightSourceVector,vec3(0,1,0),xAngle);
+        for(float yAngle=-verticalAOV+stepY;yAngle<verticalAOV;yAngle+=stepY){
+            vec3 yRot =rotate(xRot,vec3(1,0,0),yAngle);
+
+            vec4 mdColor= texture(mdCube,yRot);
+
+            if(mdColor.b!=0.0 && mdColor.r==0.0){
+                normalColor =vec3(0,0,1);
+                break;
+            }
+       }
+    }
+
     fragmentColor = vec4(normalColor, gl_FragCoord.z);
 
 }

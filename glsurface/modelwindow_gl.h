@@ -76,16 +76,29 @@ private:
     GLfloat *depthTex;
     GLfloat *normsTex;
 
-    int selectedMarker;
+    int selectedEntity; //negative for cameras, positive for markers
     QImage fboPickingImage;
     float lastMouseWorldPos[4];
     float lastMouseWorldNormals[4];
 
 
     int rectCamera;
+
+    int rectTopLeftX,rectTopLeftY;
+    bool rectTopLeft;
     float rectWorldPos0[4];
     float rectWorldPos1[4];
+    float rectWorldPos3[4];
+    float rectWorldPos4[4];
 
+    QImage imagemd0;
+    QImage imagemd1;
+    QImage imagemd2;
+    QImage imagemd3;
+    QImage imagemd4;
+    QImage imagemd5;
+
+    QOpenGLTexture* cubeMD;
 
     GLuint md0;
     GLuint md1;
@@ -104,6 +117,8 @@ private:
     int simCount;
 
     QVector<QVector3D> simDirs;
+
+    bool fpsView;
 
     CreateMode createMode;
     bool create_mode;

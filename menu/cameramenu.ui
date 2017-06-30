@@ -108,20 +108,20 @@
         </property>
         <property name="maximumSize">
          <size>
-          <width>80</width>
+          <width>110</width>
           <height>16777215</height>
          </size>
         </property>
         <property name="text">
-         <string>Focal Length</string>
+         <string>Horizontal AOV</string>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QDoubleSpinBox" name="focal">
+       <widget class="QDoubleSpinBox" name="haov">
         <property name="maximumSize">
          <size>
-          <width>80</width>
+          <width>50</width>
           <height>16777215</height>
          </size>
         </property>
@@ -136,6 +136,23 @@
         </property>
         <property name="singleStep">
          <double>0.100000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="label_7">
+        <property name="text">
+         <string>Vertical AOV</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QDoubleSpinBox" name="vaov">
+        <property name="maximumSize">
+         <size>
+          <width>50</width>
+          <height>16777215</height>
+         </size>
         </property>
        </widget>
       </item>
@@ -168,7 +185,7 @@
        <widget class="QDoubleSpinBox" name="hei">
         <property name="maximumSize">
          <size>
-          <width>80</width>
+          <width>50</width>
           <height>16777215</height>
          </size>
         </property>

@@ -21,7 +21,7 @@ public:
     void eagleView();
 
     bool shiftPressed;
-
+    bool fpsView,
 private:
     QVector3D rotate(QVector3D Vx,QVector3D axis, float angle);
 
@@ -32,6 +32,7 @@ private:
     QVector3D upVec;
 
     QMatrix4x4 m_view;
+
 
     int height,width;
 

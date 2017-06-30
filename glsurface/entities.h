@@ -24,10 +24,12 @@ public:
     QCursor getCursor(CreateMode cm);
 
     int createMarker(QVector3D pos,QVector3D rot,float angle);
-    void createCamera(QVector3D pos,QVector3D rot,QVector2D scale,float angle);
+    int createCamera(QVector3D pos,QVector3D rot,QVector2D scale,float angle);
     Marker getMarker(int index);
     Marker* getMarkerPtr(int index);
     Camera getCamera(int index);
+
+    QOpenGLTexture* getCameraTexture();
 
     int cameraCount();
     int markerCount();
@@ -41,8 +43,11 @@ public:
     bool runSim;
     int simIndex;
     int selectedCam;
+    CameraParams camParams;
 
 
+    QVector<Camera> cameras;
+    QVector<Marker> markers;
 
 private:
     QCursor defaultCursor;
@@ -51,11 +56,13 @@ private:
 
     int selectedMarker;
 
+
     QOpenGLTexture* defaultMarkerTexture;
     QImage* defaultMarkerImage;
 
-    QVector<Camera> cameras;
-    QVector<Marker> markers;
+    QOpenGLTexture* defaultCameraTexture;
+    QImage* defaultCameraImage;
+
 
     CreateMode createMode;
     bool create_mode;

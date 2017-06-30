@@ -14,6 +14,14 @@ class QTimer;
 class QOpenGLContext;
 enum Pass { Normals, Depth , MarkerTex , Picking, Full , CameraSim , MarkerDepth};
 
+
+struct CameraParams{
+    float height;
+    float focalLength;
+    float verticalAOV;
+    float horizontalAOV;
+};
+
 struct Camera
 {
     QVector3D position;

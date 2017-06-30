@@ -14,16 +14,20 @@ class CameraMenu : public QWidget
 public:
     explicit CameraMenu(QWidget *parent = 0);
     ~CameraMenu();
-    void editCamera(int index,Camera* camera,bool* runSim);
+    void editCamera(int index,Camera* camera,bool* runSim,CameraParams* camParams);
 
 
 private:
     Ui::CameraMenu *ui;
     int m_Index;
     Camera *m_Camera;
+    CameraParams *m_CameraParams;
     bool* m_runSim;
 public slots:
     void runSimulation();
+    void changeCameraParams();
+    void changeCamera();
+
 };
 
 #endif // CAMERAMENU_H
