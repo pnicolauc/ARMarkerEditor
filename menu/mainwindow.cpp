@@ -9,9 +9,13 @@
 #include "ui_mainwindow.h"
 #include <menu/markermenu.h>
 #include <menu/cameramenu.h>
+#include <menu/saveproject.h>
 
 #include <QOpenGLContext>
 #include <glsurface/glsignalemitter.h>
+#include <zipreader/zipreader.h>
+#include <zipreader/zipwriter.h>
+#include <QStandardPaths>
 
 QOpenGLContext *createOpenGLContext(int major, int minor) {
     QSurfaceFormat requestedFormat;
@@ -52,40 +56,151 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     ui->setupUi(this);
 
+    QDir arDir("ardata");
+    if(arDir.exists()) arDir.removeRecursively();
+
     connect(ui->actionQuit, SIGNAL(triggered()), qApp, SLOT(quit()));
     connect(ui->actionOpen_Model_2,SIGNAL(triggered()),this,SLOT(addGLWindow()));
+    connect(ui->actionOpen_Model,SIGNAL(triggered()),this,SLOT(openProject()));
+    connect(ui->actionSave_as_Project,SIGNAL(triggered()),this,SLOT(opensaveProjectMenu()));
+
     this->setFixedSize(970,550);
 
 
 }
 
-void MainWindow::addGLWindow(){
+QUrl MainWindow::selectFile(QString title,QString filters){
     QUrl sourceFileName;
     QWidget *container = new QWidget();
     QFileDialog dialog;
     dialog.setFileMode(QFileDialog::AnyFile);
-    sourceFileName = dialog.getOpenFileUrl(container, QStringLiteral("Open a scene file"));
-    if (sourceFileName.isEmpty())
-        qApp->quit();
+    sourceFileName = dialog.getOpenFileUrl(container, title,QString(""),filters);
+
+    return sourceFileName;
+}
+
+bool MainWindow::openProject(){
+    QString fileFormat="ARMarker File (*.ardata)";
+    QUrl sourceFileName=selectFile("Open a ARMarker file", fileFormat);
+
+    if(sourceFileName.path().length()==0){
+        return false;
+    }
+
+    QString arFile;
+
+    if(sourceFileName.path().at(0)=="/"){
+        arFile=sourceFileName.path().remove(0,1);
+
+    }else arFile=sourceFileName.path();
+    ardataloader= new ARDataLoader(arFile);
 
     QOpenGLContext *context = createOpenGLContext(3, 3);
 
+    QString sourceFn=QString("/ardata/") + ardataloader->modelFolder + "/" + ardataloader->threeDFile;
+    QString sourceFn2=QString("/ardata/") + ardataloader->modelFolder + "/" + ardataloader->threeDFile;
+
+    qDebug() << sourceFn;
     if (!context)
         qApp->quit();
+
+    if(glcontainer!=nullptr){
+        glcontainer->deleteLater();
+    }
 
     QPair<int, int> glVersion = context->format().version();
     bool isOpenGLES = context->format().renderableType() == QSurfaceFormat::OpenGLES;
 
     qDebug() << "OpenGL Version:" << glVersion << (isOpenGLES ? "ES" : "Desktop");
 
+
     //CHANGE PROJECT
     //TODO - add dialog to make sure of replacing gl window
     if (glVersion == qMakePair(3,3) && !isOpenGLES) {
-        modelWindow = new ModelWindow_GL(sourceFileName.path(), ModelLoader::RelativePath);//new Scene(OpenGL_Model, ModelLoader::RelativePath);
+        modelWindow = new ModelWindow_GL(sourceFn, sourceFn2,ModelLoader::RelativePath,ardataloader);//new Scene(OpenGL_Model, ModelLoader::RelativePath);
     }
     modelWindow->initializeWindow(context, 40);
 
-    QWidget *glcontainer = QWidget::createWindowContainer(modelWindow, this);
+    glcontainer = QWidget::createWindowContainer(modelWindow, this);
+    glcontainer->setMinimumSize(500, 500);
+    glcontainer->setMaximumSize(1000, 1000);
+    glcontainer->setFocusPolicy(Qt::TabFocus);
+    ui->glContainer->addWidget(glcontainer);
+
+    setupGLSignals();
+
+}
+bool MainWindow::saveProject(QString mf,QString vf, QString zf, QString op,QString key){
+    if(glcontainer!=nullptr){
+        qDebug() << "Saving...";
+        ardataloader= modelWindow->getSaveARData();
+        ardataloader->zipfile = zf;
+        ardataloader->key = key;
+        QFileInfo f1(modelWindow->m_filepath);
+        QFileInfo f2(modelWindow->m_filepath2);
+        ardataloader->fullModelfolder = f1.absoluteDir().absolutePath();
+        ardataloader->fullModelfolder2= f2.absoluteDir().absolutePath();
+        ardataloader->modelFolder= QString("obj");
+        ardataloader->threeDFile =f2.fileName();
+        ardataloader->realthreeDFile=f1.fileName();
+        ardataloader->save(op);
+    }
+}
+
+bool MainWindow::opensaveProjectMenu(){
+    if(objectEditor!=nullptr) objectEditor->deleteLater();
+
+    SaveProject* savePr= new SaveProject(this);
+    objectEditor = savePr;
+    ui->objectEditor->addWidget(savePr);
+
+    savePr->setModelFolder(modelWindow->m_filepath);
+    savePr->setVirtualFolder(modelWindow->m_filepath2);
+    savePr->setSavePath(QStandardPaths::displayName( QStandardPaths::DesktopLocation ) + "/new.ardata");
+
+    connect(savePr,SIGNAL(saveProj(QString, QString, QString,QString,QString)), this, SLOT(saveProject(QString, QString, QString,QString,QString)));
+}
+
+bool MainWindow::addGLWindow(){
+    QString fileFormat="3D Model (*.fbx *.dae *.gltf *.glb";
+    fileFormat+=" *.blend *.3ds *.ase *.obj *.ifc *.xgl *.zgl";
+    fileFormat+=" *.ply *.dxf *.lwo *.lws *.lxo *.stl *.x";
+    fileFormat+=" *.ac *.ms3d *.cob *.scn)";
+
+    QUrl sourceFileName=selectFile("Open Real 3D Model", fileFormat);
+
+    if(sourceFileName.path().length()==0){
+        return false;
+    }
+    QUrl sourceFileName2=selectFile("Open Virtual 3D Model", fileFormat);
+
+    if(sourceFileName2.path().length()==0){
+        return false;
+    }
+    QOpenGLContext *context = createOpenGLContext(3, 3);
+
+    if (!context)
+        qApp->quit();
+
+    if(glcontainer!=nullptr){
+        glcontainer->deleteLater();
+    }
+
+    QPair<int, int> glVersion = context->format().version();
+    bool isOpenGLES = context->format().renderableType() == QSurfaceFormat::OpenGLES;
+
+    qDebug() << "OpenGL Version:" << glVersion << (isOpenGLES ? "ES" : "Desktop");
+
+    qDebug() << sourceFileName.path() << " " << sourceFileName2.path();
+
+    //CHANGE PROJECT
+    //TODO - add dialog to make sure of replacing gl window
+    if (glVersion == qMakePair(3,3) && !isOpenGLES) {
+        modelWindow = new ModelWindow_GL(sourceFileName.path(),sourceFileName2.path(), ModelLoader::RelativePath);//new Scene(OpenGL_Model, ModelLoader::RelativePath);
+    }
+    modelWindow->initializeWindow(context, 40);
+
+    glcontainer = QWidget::createWindowContainer(modelWindow, this);
     glcontainer->setMinimumSize(500, 500);
     glcontainer->setMaximumSize(1000, 1000);
     glcontainer->setFocusPolicy(Qt::TabFocus);

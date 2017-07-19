@@ -15,6 +15,7 @@ ViewCamera::ViewCamera()
                 cameraVec,    // Point camera looks towards
                 upVec);   // Up vector
     shiftPressed=false;
+    fpsView=false;
 }
 
 void ViewCamera::walkForward(){
@@ -37,12 +38,19 @@ void ViewCamera::eagleView(){
 }
 
 void ViewCamera::setupCamera(QVector3D eye,QVector3D center,QVector3D up){
+    if(center.y()==-10000){
+        if(eye.y()!=-10000) center=eye+cameraForward;
+        else center=cameraPos+cameraForward;
+    }
 
-    if(up.x()==0.0 && up.y()==0.0 && up.z()==0.0) {
+    if(eye.y()==-10000){
         eye=cameraPos;
-        center=cameraPos+cameraForward;
+    }
+
+    if(up.y()==-10000){
         up=upVec;
     }
+
 
     m_view.setToIdentity();
     m_view.lookAt(

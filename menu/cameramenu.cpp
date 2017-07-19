@@ -43,6 +43,9 @@ void CameraMenu::changeCameraParams(){
     m_CameraParams->verticalAOV=ui->vaov->value();
     m_CameraParams->height=ui->hei->value();
 
+    m_CameraParams->projection.setToIdentity();
+    m_CameraParams->projection.perspective(m_CameraParams->verticalAOV, m_CameraParams->horizontalAOV/m_CameraParams->verticalAOV, .3f, 100);
+
 }
 
 void CameraMenu::changeCamera(){

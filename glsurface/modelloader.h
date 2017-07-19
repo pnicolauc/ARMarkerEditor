@@ -65,12 +65,14 @@ public:
 
     enum ModelType{
         MainModelType,
+        VirtualModelType,
+
         CameraType,
         MarkerType
     };
 
     ModelLoader(bool transformToUnitCoordinates = true);
-    bool Load(QString filePath, PathType pathType);
+    bool Load(QString filePath,QString filePath2, PathType pathType);
     bool LoadModel(QString filePath, PathType pathType,ModelType modelType);
 
     void getBufferData( QVector<float> **vertices, QVector<float> **normals,
@@ -82,6 +84,7 @@ public:
     QSharedPointer<Node> getNodeData() { return m_rootNode; }
     QSharedPointer<Node> getCameraData() { return m_cameraNode; }
     QSharedPointer<Node> getMarkerData() { return m_markerNode; }
+    QSharedPointer<Node> getVirtualData() { return m_virtualNode; }
 
     // Texture information
     int numUVChannels() { return m_textureUV.size(); }
@@ -109,8 +112,9 @@ private:
 
     QSharedPointer<Node> m_cameraNode;
     QSharedPointer<Node> m_markerNode;
-
+    QSharedPointer<Node> m_virtualNode;
     QSharedPointer<Node> m_rootNode;
+
     bool m_transformToUnitCoordinates;
 };
 

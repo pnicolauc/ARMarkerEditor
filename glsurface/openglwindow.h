@@ -9,17 +9,21 @@
 
 #include <QOpenGLFunctions_3_3_Core>
 #include <QOpenGLFunctions>
+#include <QMatrix4x4>
 class QScreen;
 class QTimer;
 class QOpenGLContext;
 enum Pass { Normals, Depth , MarkerTex , Picking, Full , CameraSim , MarkerDepth};
 
+enum DRAW_MODEL { VIRTUAL, REAL };
 
 struct CameraParams{
     float height;
     float focalLength;
     float verticalAOV;
     float horizontalAOV;
+
+    QMatrix4x4 projection;
 };
 
 struct Camera
@@ -33,6 +37,7 @@ struct Camera
 
 struct Marker
 {
+    QString name;
     QVector3D position;
     QVector3D rotation;
     QVector2D scale;

@@ -30,6 +30,9 @@ Entities::Entities()
     camParams.focalLength=15.0;
     camParams.horizontalAOV=60.0;
     camParams.verticalAOV=60.0;
+
+    camParams.projection.setToIdentity();
+    camParams.projection.perspective(camParams.verticalAOV, camParams.horizontalAOV/camParams.verticalAOV, .3f, 100);
 }
 
 QMatrix4x4 Entities::getCubeMapProjectionMatrix(){
@@ -40,8 +43,10 @@ QOpenGLTexture* Entities::getCameraTexture(){
  return defaultCameraTexture;
 }
 
-int Entities::createMarker(QVector3D pos,QVector3D rot,float angle){
+int Entities::createMarker(QString name,QVector3D pos,QVector3D rot,float angle){
     Marker marker;
+
+    marker.name= name;
     marker.position= pos;
     marker.rotation= rot;
     marker.angle=angle;

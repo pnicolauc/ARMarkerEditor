@@ -16,12 +16,12 @@ public:
     QMatrix4x4 getViewM();
     QMatrix4x4 getProjM();
     void resize(int h,int w);
-    void setupCamera(QVector3D eye=QVector3D(0,0,0),QVector3D center=QVector3D(0,0,0),QVector3D up=QVector3D(0,0,0));
+    void setupCamera(QVector3D eye=QVector3D(0,-10000,0),QVector3D center=QVector3D(0,-10000,0),QVector3D up=QVector3D(0,-10000,0));
     QVector3D getForwardPos();
     void eagleView();
 
     bool shiftPressed;
-    bool fpsView,
+    bool fpsView;
 private:
     QVector3D rotate(QVector3D Vx,QVector3D axis, float angle);
 

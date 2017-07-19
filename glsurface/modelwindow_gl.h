@@ -17,12 +17,13 @@
 #include <glsurface/screen.h>
 
 #include <glsurface/shaders.h>
+#include <ardataloader/ardataloader.h>
 
 class ModelWindow_GL : public QOpenGLFunctions_3_3_Core, public OpenGLWindow
 {
 
 public:
-    ModelWindow_GL(QString filepath, ModelLoader::PathType pathType, QString texturePath="");
+    ModelWindow_GL(QString filepath,QString filepath2, ModelLoader::PathType pathType,ARDataLoader* dataLoader= new ARDataLoader());
     void mousePressEvent(QMouseEvent *event);
     void mouseDoubleClickEvent(QMouseEvent *event);
     void mouseReleaseEvent(QMouseEvent* event);
@@ -35,8 +36,11 @@ public:
     void drawCameras();
     void drawMarkers();
     void createEntity();
-
+    ARDataLoader* getSaveARData();
     Entities entities;
+    ARDataLoader* ardataloader;
+
+    QString m_filepath,m_filepath2;
 
 protected:
     void initializeGL();
@@ -151,6 +155,7 @@ private:
     QSharedPointer<Node> m_cameraNode;
     QSharedPointer<Node> m_markerNode;
     QSharedPointer<Node> m_rootNode;
+    QSharedPointer<Node> m_virtualNode;
 
     QMatrix4x4 m_model, m_SimView0,
     m_SimView1,m_SimView2,
@@ -159,8 +164,9 @@ private:
 
     QOpenGLTexture* shadowTexture;
 
-    QString m_filepath;
     ModelLoader::PathType m_pathType;
+
+    DRAW_MODEL draw_Model;
     QString m_texturePath;
 
     LightInfo m_lightInfo;

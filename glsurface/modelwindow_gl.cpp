@@ -5,21 +5,25 @@
 #include <stdio.h>      /* printf */
 
 #include <math.h>       /* acos */
+#include <ardataloader/ardataloader.h>
 
-
-ModelWindow_GL::ModelWindow_GL(QString filepath, ModelLoader::PathType pathType, QString texturePath) :
+ModelWindow_GL::ModelWindow_GL(QString filepath,QString filepath2, ModelLoader::PathType pathType,ARDataLoader* dataLoader) :
     OpenGLWindow()
   , m_indexBuffer(QOpenGLBuffer::IndexBuffer)
   , m_filepath(filepath)
+  , m_filepath2(filepath2)
   , m_pathType(pathType)
-  , m_texturePath(texturePath)
+  , ardataloader(dataLoader)
   , m_error(false)
 {
+    ardataloader->fullModelfolder=filepath;
+    ardataloader->fullModelfolder2=filepath2;
+
 }
 
 void ModelWindow_GL::initializeGL()
 {
-
+    draw_Model=REAL;
     rectTopLeft=false;
     viewCam.fpsView=false;
 
@@ -42,6 +46,12 @@ void ModelWindow_GL::initializeGL()
     simCount=0;
 
     entities = Entities();
+
+    foreach(Marker mk, ardataloader->markers){
+        qDebug() << "marker" << mk.name;
+
+        entities.createMarker(mk.name,mk.position,mk.rotation,mk.angle);
+    }
     viewCam = ViewCamera();
     shaders = Shaders();
     scroll=0;
@@ -98,6 +108,13 @@ void ModelWindow_GL::createShaderProgram(QString vShader, QString fShader,QOpenG
         m_error = true;
     }
 }
+
+ARDataLoader* ModelWindow_GL::getSaveARData(){
+    ardataloader->markers = entities.markers;
+
+    return ardataloader;
+}
+
 void ModelWindow_GL::createAttributes(QOpenGLShaderProgram* shaderprogram){
     m_vao.bind();
     // Set up the vertex array state
@@ -137,10 +154,12 @@ void ModelWindow_GL::createBuffers()
 
     #ifdef WIN32
     m_filepath.remove(0,1);
+    m_filepath2.remove(0,1);
+
     #endif
 
     qDebug() << m_filepath;
-    if(!model.Load(m_filepath, m_pathType))
+    if(!model.Load(m_filepath,m_filepath2, m_pathType))
     {
         m_error = true;
         return;
@@ -191,6 +210,7 @@ void ModelWindow_GL::createBuffers()
     m_rootNode = model.getNodeData();
     m_cameraNode = model.getCameraData();
     m_markerNode= model.getMarkerData();
+    m_virtualNode = model.getVirtualData();
 
 }
 
@@ -291,25 +311,6 @@ void ModelWindow_GL::drawMarkers(){
         drawNode(m_markerNode.data(), QMatrix4x4());
         m_vao.release();
 
-    }
-    if(pass==MarkerTex){
-        if(createMode==CREATE_MARKER){
-            create_mode = true;
-
-            /*Marker tempMk = entities.createTemporaryMarker(
-                        lastMouseWorldNormals,lastMouseWorldPos);
-
-            tempMk.texture->bind();
-            m_model.setToIdentity();
-            m_model.translate(tempMk.position);
-            m_model.rotate(tempMk.angle,tempMk.rotation);
-            m_model.scale(tempMk.scale.x(),tempMk.scale.y(),0.0);
-
-            m_MarkerTextureProgram.setUniformValue( "selected", true );
-            m_vao.bind();
-            drawNode(m_markerNode.data(), QMatrix4x4());
-            m_vao.release();*/
-        }
     }
 
     m_model.setToIdentity();
@@ -474,7 +475,9 @@ void ModelWindow_GL::RenderPass(Pass currPass,bool renderFBO,bool renderModel,bo
     if(renderModel){
         if(pass==MarkerDepth)m_MarkerDepthProgram.setUniformValue("type",0.0f);
         m_vao.bind();
-        drawNode(m_rootNode.data(), QMatrix4x4());
+        if(draw_Model==REAL)drawNode(m_rootNode.data(), QMatrix4x4());
+        else drawNode(m_virtualNode.data(), QMatrix4x4());
+
         m_vao.release();
     }
     if(renderEntities){
@@ -604,12 +607,17 @@ void ModelWindow_GL::keyPressEvent(QKeyEvent * ev) {
         }
     case Qt::Key_F:
         viewCam.fpsView=!viewCam.fpsView;
-
+        break;
     case Qt::Key_Shift:
         viewCam.shiftPressed=true;
         break;
     case Qt::Key_E:
         viewCam.eagleView();
+        break;
+    case Qt::Key_P:
+        if(draw_Model==VIRTUAL) draw_Model=REAL;
+        else draw_Model=VIRTUAL;
+        break;
     default:
         break;
     }
@@ -639,7 +647,7 @@ void ModelWindow_GL::createEntity(){
 
             pos= QVector3D(lastMouseWorldPos[0],lastMouseWorldPos[1],lastMouseWorldPos[2]);
             rot= cross;
-            selectedEntity=entities.createMarker(pos,rot,angle*57.2957795);
+            selectedEntity=entities.createMarker(QString(""),pos,rot,angle*57.2957795);
             create_mode=false;
     }
             break;
@@ -741,7 +749,16 @@ void ModelWindow_GL::paintGL()
         viewCam.setupCamera();
     }
 
+
+    if(selectedEntity<0 && viewCam.fpsView){
+        qDebug() << selectedEntity << viewCam.fpsView;
+        QVector3D camSimPos=entities.getCamera(entities.simIndex).position+QVector3D(0.0,entities.camParams.height,0.0);
+
+        viewCam.setupCamera(camSimPos);
+    }
+
     RenderPass(Full,false,true,true);
+
     //Create Camera or Marker
     if(screen.mouseDClick){
         createEntity();
@@ -838,7 +855,10 @@ void ModelWindow_GL::setShaderUniformNodeValues(QMatrix4x4 objectMatrix){
         m_shaderProgram.setUniformValue( "MV", modelViewMatrix );// Transforming to eye space
         m_shaderProgram.setUniformValue( "N", normalMatrix );    // Transform normal to Eye space
         m_shaderProgram.setUniformValue( "MVP", mvp );           // Matrix for transforming to Clip space
-        m_shaderProgram.setUniformValue( "P", screen.m_projection );
+        if(!viewCam.fpsView)
+            m_shaderProgram.setUniformValue( "P", screen.m_projection );
+        else m_shaderProgram.setUniformValue( "P", entities.camParams.projection );
+
         m_shaderProgram.setUniformValue( "V", viewCam.getViewM() );
         if(cameraSim){
             m_shaderProgram.setUniformValue("sim_mvp0",sim_mvp0 );

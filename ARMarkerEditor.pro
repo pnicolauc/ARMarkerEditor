@@ -26,6 +26,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 # You can also select to disable deprecated APIs only up to a certain version of Qt.
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
+INCLUDEPATH += $$PWD/zlib
 
 SOURCES += main.cpp\
     glsurface/glsignalemitter.cpp \
@@ -38,7 +39,10 @@ SOURCES += main.cpp\
     glsurface/entities.cpp \
     glsurface/viewcamera.cpp \
     glsurface/threeddata.cpp \
-    menu/cameramenu.cpp
+    menu/cameramenu.cpp \
+    zipreader/zip.cpp \
+    ardataloader/ardataloader.cpp \
+    menu/saveproject.cpp
 
 HEADERS  += glsurface/glsignalemitter.h \
     glsurface/modelloader.h \
@@ -51,11 +55,18 @@ HEADERS  += glsurface/glsignalemitter.h \
     glsurface/viewcamera.h \
     glsurface/screen.h \
     glsurface/threeddata.h \
-    menu/cameramenu.h
+    menu/cameramenu.h \
+    zipreader/zipreader.h \
+    zipreader/zipwriter.h \
+    zipreader/zlib.h \
+    zipreader/zconf.h \
+    ardataloader/ardataloader.h \
+    menu/saveproject.h
 
 FORMS    += menu/mainwindow.ui \
     menu/markermenu.ui \
-    menu/cameramenu.ui
+    menu/cameramenu.ui \
+    menu/saveproject.ui
 
 
 
@@ -82,14 +93,18 @@ RESOURCES += \
 unix: !macx {
     INCLUDEPATH +=  /usr/include
     LIBS += /home/al/Downloads/assimp-3.1.1/lib/libassimp.so
+    LIBS += -L$$PWD/zlib -lz
 }
 
 macx {
     INCLUDEPATH +=  /usr/local/include
     LIBS += /usr/local/lib/libassimp.dylib
+    LIBS += -L$$PWD/zlib -lz
+
 }
 
 win32 {
     INCLUDEPATH += "C:\Assimp\build\include"
     LIBS += -L"C:\Assimp\build" -lassimp
+    LIBS += -L$$PWD/zlib/Windows -lz
 }

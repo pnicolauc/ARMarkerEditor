@@ -92,6 +92,9 @@ bool ModelLoader::LoadModel(QString filePath, PathType pathType,ModelType modelT
             case MainModelType:
                 m_rootNode.reset(rootNode);
                 break;
+            case VirtualModelType:
+                m_virtualNode.reset(rootNode);
+                break;
             case CameraType:
                 m_cameraNode.reset(rootNode);
                 break;
@@ -111,10 +114,11 @@ bool ModelLoader::LoadModel(QString filePath, PathType pathType,ModelType modelT
     return true;
 }
 
-bool ModelLoader::Load(QString filePath, PathType pathType)
+bool ModelLoader::Load(QString filePath,QString filePath2, PathType pathType)
 {
     lastmesh=0;
     LoadModel(filePath,pathType,MainModelType);
+    LoadModel(filePath2,pathType,VirtualModelType);
 
     QFile::copy(":/resources/models/camera/camera.obj", QCoreApplication::applicationDirPath().append("camera.obj"));
     QFile::copy(":/resources/models/marker/marker.obj",QCoreApplication::applicationDirPath().append("marker.obj"));
