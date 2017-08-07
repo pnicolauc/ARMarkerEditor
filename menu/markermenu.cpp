@@ -19,6 +19,8 @@ void MarkerMenu::editMarker(int index,Marker *marker){
     ui->posy->setValue(marker->position.y());
     ui->posz->setValue(marker->position.z());
 
+
+
     ui->height->setValue(marker->scale.y());
     ui->width->setValue(marker->scale.x());
 
@@ -27,6 +29,8 @@ void MarkerMenu::editMarker(int index,Marker *marker){
     ui->rotz->setValue(marker->rotation.z());
 
     ui->ang->setValue(marker->angle);
+
+    ui->ui_name->setText(marker->name);
 
     ui->texImage->setPixmap(QPixmap::fromImage((marker->image->mirrored())));
     ui->texImage->setScaledContents( true );
@@ -39,12 +43,20 @@ void MarkerMenu::editMarker(int index,Marker *marker){
     connect(ui->width,SIGNAL(valueChanged(double)),this,SLOT(markerEdit()));
     connect(ui->height,SIGNAL(valueChanged(double)),this,SLOT(markerEdit()));
 
+
+    connect(ui->ui_name,SIGNAL(textChanged()),this,SLOT(changeName()));
+
+
     connect(ui->rotx,SIGNAL(valueChanged(double)),this,SLOT(markerEdit()));
     connect(ui->roty,SIGNAL(valueChanged(double)),this,SLOT(markerEdit()));
     connect(ui->rotz,SIGNAL(valueChanged(double)),this,SLOT(markerEdit()));
     connect(ui->ang,SIGNAL(valueChanged(int)),this,SLOT(markerEdit()));
 
     connect(ui->filePicker,SIGNAL(pressed()),this,SLOT(OpenImage()));
+}
+
+void MarkerMenu::changeName(){
+    m_Marker->name = ui->ui_name->toPlainText();
 }
 
 void MarkerMenu::OpenImage(){
@@ -78,6 +90,8 @@ void MarkerMenu::markerEdit(){
     m_Marker->rotation.setX(ui->rotx->value());
     m_Marker->rotation.setY(ui->roty->value());
     m_Marker->rotation.setZ(ui->rotz->value());
+
+    m_Marker->name = ui->ui_name->toPlainText();
 
     m_Marker->angle= ui->ang->value();
     //emit markerChanged(m_Index,m_Marker);

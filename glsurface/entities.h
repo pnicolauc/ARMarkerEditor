@@ -23,8 +23,8 @@ public:
 
     QCursor getCursor(CreateMode cm);
 
-    int createMarker(QString name,QVector3D pos,QVector3D rot,float angle);
-    int createCamera(QVector3D pos,QVector3D rot,QVector2D scale,float angle);
+    int createMarker(QString name,QVector2D sc,QVector3D pos,QVector3D rot,float angle);
+    int createCamera(QVector3D pos,QVector3D rot,QVector2D scale,float angle,int* simCount);
     Marker getMarker(int index);
     Marker* getMarkerPtr(int index);
     Camera getCamera(int index);

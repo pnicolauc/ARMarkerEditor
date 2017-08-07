@@ -9,7 +9,12 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QXmlStreamReader>
+#include <QXmlStreamWriter>
+
 #include <QFileInfo>
+
+#include <QDirIterator>
+#include <QMessageBox>
 
 ARDataLoader::ARDataLoader(QString zipfile):zipfile(zipfile)
 {
@@ -24,56 +29,40 @@ void ARDataLoader::extract(){
     cZip.extractAll("./");
 }
 
-void ARDataLoader::compress(QString filename){
-    /*QDir dir;
-    dir.setPath(from_dir);
+void ARDataLoader::addDirToZip(ZipWriter* cZip,QString mainFolder,QString relativePath){
+    qDebug() << relativePath;
 
-    from_dir += QDir::separator();
-    to_dir += QDir::separator();
+    QDir dir;
+    if(relativePath.length()>0)
+        cZip->addDirectory(relativePath);
+    dir.setPath(mainFolder + relativePath);
 
     foreach (QString copy_file, dir.entryList(QDir::Files))
     {
-        QString from = from_dir + copy_file;
-        QString to = to_dir + copy_file;
-
-
-        if (QFile::exists(to))
-        {
-            if (replace_on_conflit)
-            {
-                if (QFile::remove(to) == false)
-                {
-                    return false;
-                }
-            }
-            else
-            {
-                continue;
-            }
+        qDebug() << copy_file;
+        QFile file(mainFolder+ relativePath +  copy_file);
+        if (!file.open(QIODevice::ReadOnly)) {
+            qWarning("Couldn't open file:");
+            return;
         }
+        cZip->addFile( relativePath +  copy_file,file.readAll());
 
-        if (QFile::copy(from, to) == false)
-        {
-            return false;
-        }
+
+        file.close();
     }
 
-    foreach (QString copy_dir, dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot))
+    foreach (QString copy_dir, dir.entryList(QDir::AllDirs | QDir::NoDotAndDotDot))
     {
-        QString from = from_dir + copy_dir;
-        QString to = to_dir + copy_dir;
 
-        if (dir.mkpath(to) == false)
-        {
-            return false;
-        }
+        addDirToZip(cZip,mainFolder,relativePath + copy_dir + "/");
+    }
 
-        if (copy_dir_recursive(from, to, replace_on_conflit) == false)
-        {
-            return false;
-        }
-    }*/
+}
 
+void ARDataLoader::compress(QString filename){
+    ZipWriter cZip(filename);
+    addDirToZip(&cZip,"ardata/","");
+    cZip.close();
 }
 
 bool ARDataLoader::copy_dir_recursive(QString from_dir, QString to_dir, bool replace_on_conflit)
@@ -131,18 +120,26 @@ bool ARDataLoader::copy_dir_recursive(QString from_dir, QString to_dir, bool rep
 }
 
 void ARDataLoader::save(QString filename){
-
+    foreach(Marker m, markers){
+        if(m.name.length()==0){
+            qDebug()  << markers.size();
+            QMessageBox Msgbox;
+            Msgbox.setText("All Markers need to have Names.");
+            Msgbox.exec();
+            return;
+        }
+    }
 
     QJsonObject datasetJson;
     datasetJson["key"] = key;
     datasetJson["modelFolder"] = modelFolder;
-    datasetJson["obj"] = "model";
+    datasetJson["real"] =realthreeDFile;
+    datasetJson["virtual"] =threeDFile;
     datasetJson["scale"] = 1.0;
-    datasetJson["mtl"] = "no.mtl";
 
     if(xmlfile.length()>0)
         datasetJson["xml"] = xmlfile;
-    else{
+    else if(zipfile.length()>0){
         ZipReader cZip(zipfile);
 
         cZip.extractAll("ardata");
@@ -152,15 +149,20 @@ void ARDataLoader::save(QString filename){
 
             if(fi.filePath.endsWith("xml")){
                 datasetJson["xml"] = fi.filePath;
+                xmlfile=fi.filePath;
             }
         }
     }
+
+    writeXMLFile();
     QDir arDir("ardata/model");
     if (!QDir().mkpath(arDir.absolutePath()))
         return;
 
-    copy_dir_recursive(fullModelfolder,"ardata/model",true);
-    copy_dir_recursive(fullModelfolder2,"ardata/model",true);
+    if(!fullModelfolder.endsWith("ardata/"+modelFolder))
+        copy_dir_recursive(fullModelfolder,"ardata/"+ modelFolder,true);
+    if(!fullModelfolder2.endsWith("ardata/"+modelFolder))
+        copy_dir_recursive(fullModelfolder2,"ardata/"+modelFolder,true);
 
     QJsonArray mkArray;
     foreach (Marker mk, markers) {
@@ -200,6 +202,8 @@ void ARDataLoader::save(QString filename){
     }
     datasetFile.write(saveJson.toJson());
 
+    datasetFile.close();
+
     compress(filename);
 }
 
@@ -216,7 +220,9 @@ void ARDataLoader::parseJSonFile(){
     QJsonObject json= loadDoc.object();
 
     modelFolder = json["modelFolder"].toString();
-    threeDFile = json["obj"].toString();
+    realthreeDFile = json["real"].toString();
+    threeDFile = json["virtual"].toString();
+
     xmlfile = json["xml"].toString();
     key = json["key"].toString();
 
@@ -244,6 +250,32 @@ void ARDataLoader::parseJSonFile(){
 
         qDebug() <<  marker.name << marker.angle << " " << marker.position << marker.rotation << marker.scale;
     }
+}
+
+void ARDataLoader::writeXMLFile(){
+    QFile xmlFile(QDir::currentPath() + QString("/ardata/") + xmlfile);
+    if (!xmlFile.open(QIODevice::WriteOnly)) {
+        qWarning("Couldn't open xml file.");
+        return;
+    }
+    QXmlStreamWriter* stream = new QXmlStreamWriter(&xmlFile);
+    stream->setAutoFormatting(true);
+
+    stream->writeStartDocument();
+
+    stream->writeStartElement("QCARConfig");
+    stream->writeStartElement("Tracking");
+
+    foreach(Marker m, markers){
+        stream->writeStartElement("ImageTarget");
+        stream->writeAttribute("name", m.name);
+        stream->writeAttribute("size", QString::number(m.scale[0]) + " " + QString::number(m.scale[1]));
+        stream->writeEndElement();
+    }
+
+    stream->writeEndElement();
+    stream->writeEndElement();
+    stream->writeEndDocument();
 }
 
 void ARDataLoader::parseXMLFile(){

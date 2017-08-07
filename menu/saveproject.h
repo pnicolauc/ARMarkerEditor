@@ -23,6 +23,8 @@ public:
     void setVirtualFolder(QString path);
     void setKey(QString key);
 
+    QString xml;
+
 private:
     QString modelFolder;
     QString zipFolder;

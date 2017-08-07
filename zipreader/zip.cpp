@@ -930,15 +930,15 @@ bool ZipReader::extractAll(const QString &destinationDir) const
     QList<FileInfo> allFiles = fileInfoList();
     foreach (FileInfo fi, allFiles) {
 
-        if (fi.filePath.endsWith("/")) {
-            QDir dir(fi.filePath);
+        if(fi.filePath.endsWith("/")){
 
-            if (!arDir.mkpath(fi.filePath))
-                return false;
+            qDebug() << fi.filePath;
+
+            QDir dir(fi.filePath);
+                arDir.mkpath(fi.filePath);
             /*if (!QFile::setPermissions(absPath, fi.permissions))
                 return false;*/
         }
-        qDebug() << fi.filePath;
     }
 
     // set up symlinks

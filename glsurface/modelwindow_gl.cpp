@@ -26,7 +26,7 @@ void ModelWindow_GL::initializeGL()
     draw_Model=REAL;
     rectTopLeft=false;
     viewCam.fpsView=false;
-
+    screen.mouseRightDrag=false;
     rectCamera=0;
     viewCam.shiftPressed=false;
     simDirs.push_back( QVector3D(0,0,-1));
@@ -39,18 +39,20 @@ void ModelWindow_GL::initializeGL()
     screen.mouseDrag=false;
     screen.mouseDClick=false;
     cameraSim = false;
-
+    usePreviousCameraSimPos=false;
 
     createMode= NONE;
     create_mode = false;
     simCount=0;
+    stepx=0;
+    stepy=0;
 
     entities = Entities();
 
     foreach(Marker mk, ardataloader->markers){
         qDebug() << "marker" << mk.name;
 
-        entities.createMarker(mk.name,mk.position,mk.rotation,mk.angle);
+        entities.createMarker(mk.name,mk.scale,mk.position,mk.rotation,mk.angle);
     }
     viewCam = ViewCamera();
     shaders = Shaders();
@@ -304,6 +306,7 @@ void ModelWindow_GL::drawMarkers(){
 
         m_model.setToIdentity();
         m_model.translate(mk.position);
+
         m_model.rotate(mk.angle,mk.rotation);
         m_model.scale(mk.scale.x(),mk.scale.y(),0.0);
 
@@ -407,31 +410,40 @@ void ModelWindow_GL::releaseRenderTarget(){
             case 0:
                 simImg = float_fbo->toImage();
                 sim0= float_fbo->takeTexture();
+                m_prevSimView0 = m_SimView0;
                 m_SimView0 = QMatrix4x4(viewCam.getViewM());
+
                 break;
             case 1:
                 simImg = float_fbo->toImage();
                 sim1= float_fbo->takeTexture();
+                m_prevSimView1 = m_SimView1;
+
                 m_SimView1 = QMatrix4x4(viewCam.getViewM());
                 break;
             case 2:
                 simImg = float_fbo->toImage();
                 sim2= float_fbo->takeTexture();
+
+                m_prevSimView2 = m_SimView2;
                 m_SimView2 = QMatrix4x4(viewCam.getViewM());
                 break;
             case 3:
                 simImg = float_fbo->toImage();
                 sim3= float_fbo->takeTexture();
+                m_prevSimView3 = m_SimView3;
                 m_SimView3 = QMatrix4x4(viewCam.getViewM());
 
             case 4:
                 simImg = float_fbo->toImage();
                 sim4= float_fbo->takeTexture();
+                m_prevSimView4 = m_SimView4;
                 m_SimView4 = QMatrix4x4(viewCam.getViewM());
                 break;
             case 5:
                 simImg = float_fbo->toImage();
                 sim5= float_fbo->takeTexture();
+                m_prevSimView5 = m_SimView5;
                 m_SimView5 = QMatrix4x4(viewCam.getViewM());
                 break;
             default:
@@ -550,7 +562,7 @@ void ModelWindow_GL::mouseDoubleClickEvent(QMouseEvent* event)
     if(color.green()!=255 && createMode==NONE) {
         selectedEntity =-color.green();
 
-        emit entities.glSignalEmitter->editCamera(-selectedEntity-1,&entities.cameras[-selectedEntity-1],&entities.runSim,&entities.camParams);
+        emit entities.glSignalEmitter->editCamera(-selectedEntity-1,&entities.cameras[-selectedEntity-1],&entities.runSim,&entities.camParams,&simCount);
     }
     else if(color.red()!=255 && createMode==NONE) {
         selectedEntity = color.red();
@@ -618,6 +630,12 @@ void ModelWindow_GL::keyPressEvent(QKeyEvent * ev) {
         if(draw_Model==VIRTUAL) draw_Model=REAL;
         else draw_Model=VIRTUAL;
         break;
+    case Qt::Key_Backspace:
+        if(selectedEntity>=0){
+            entities.markers.remove(selectedEntity);
+            selectedEntity--;
+        }
+        break;
     default:
         break;
     }
@@ -647,7 +665,7 @@ void ModelWindow_GL::createEntity(){
 
             pos= QVector3D(lastMouseWorldPos[0],lastMouseWorldPos[1],lastMouseWorldPos[2]);
             rot= cross;
-            selectedEntity=entities.createMarker(QString(""),pos,rot,angle*57.2957795);
+            selectedEntity=entities.createMarker(QString(""),QVector2D(1.0,1.0),pos,rot,angle*57.2957795);
             create_mode=false;
     }
             break;
@@ -665,7 +683,7 @@ void ModelWindow_GL::createEntity(){
             rot= QVector3D(0.0,0.0,0.0);
             sc= QVector2D(abs(rectWorldPos0[0]-rectWorldPos1[0]),
                     abs(rectWorldPos0[2]-rectWorldPos1[2]));
-            selectedEntity=entities.createCamera(pos,rot,sc,angle);
+            selectedEntity=entities.createCamera(pos,rot,sc,angle,&simCount);
             rectTopLeft=false;
             break;
         default:
@@ -687,6 +705,10 @@ void ModelWindow_GL::paintGL()
     RenderPass(Picking,true,false,true);
 
     if(entities.runSim){
+        if(stepx> 0 | stepy>0){
+            usePreviousCameraSimPos=true;
+        }
+
         if(simCount==6){
 
             imagemd0.save("md0.png");
@@ -733,6 +755,13 @@ void ModelWindow_GL::paintGL()
         if((simCount%6)<4) currUp = defUp; else currUp= vertUp;
 
         QVector3D camSimPos=entities.getCamera(entities.simIndex).position+QVector3D(0.0,entities.camParams.height,0.0);
+        QVector3D camSimSize=entities.getCamera(entities.simIndex).scale;
+
+        float walkX=stepx*(camSimSize.x()/3.0);
+        float walkY=stepy*(camSimSize.y()/3.0);
+
+        camSimPos.setX(camSimPos.x()-(camSimSize.x()/2.0) + walkX);
+        camSimPos.setZ(camSimPos.y()-(camSimSize.y()/2.0) + walkY);
 
         viewCam.setupCamera(camSimPos,
                             camSimPos- simDirs[simCount%6],
@@ -742,10 +771,22 @@ void ModelWindow_GL::paintGL()
         else RenderPass(CameraSim,true,true,false);
 
         simCount++;
-        if(simCount==12){
+        if(simCount==12 && stepx==2 && stepy==2){
             cameraSim=true;
             entities.runSim=false;
+            stepx=0;
+            stepy=0;
+            usePreviousCameraSimPos=false;
+
+        }else if(simCount==12 && stepx==2){
+            stepy++;
+            stepx=0;
+            simCount=0;
+        }else if(simCount==12){
+            stepx++;
+            simCount=0;
         }
+
         viewCam.setupCamera();
     }
 
@@ -908,6 +949,45 @@ void ModelWindow_GL::setShaderUniformNodeValues(QMatrix4x4 objectMatrix){
         m_ShadowMapProgram.setUniformValue( "horizontalAOV", entities.camParams.horizontalAOV );
         m_ShadowMapProgram.setUniformValue( "verticalAOV", entities.camParams.verticalAOV );
 
+        m_ShadowMapProgram.setUniformValue( "usePreviousCameraSimPos", usePreviousCameraSimPos );
+        if(usePreviousCameraSimPos){
+            QMatrix4x4 sim_mvp0 = entities.getCubeMapProjectionMatrix() * (m_prevSimView0 *modelMatrix);
+            QMatrix4x4 sim_mvp1 = entities.getCubeMapProjectionMatrix() * (m_prevSimView1 *modelMatrix);
+            QMatrix4x4 sim_mvp2 = entities.getCubeMapProjectionMatrix() * (m_prevSimView2 *modelMatrix);
+            QMatrix4x4 sim_mvp3 = entities.getCubeMapProjectionMatrix() * (m_prevSimView3 *modelMatrix);
+            QMatrix4x4 sim_mvp4 = entities.getCubeMapProjectionMatrix() * (m_prevSimView4 *modelMatrix);
+            QMatrix4x4 sim_mvp5 = entities.getCubeMapProjectionMatrix() * (m_prevSimView5 *modelMatrix);
+
+            m_shaderProgram.setUniformValue("sim_mvp0",sim_mvp0 );
+            m_shaderProgram.setUniformValue("sim_mvp1",sim_mvp1 );
+            m_shaderProgram.setUniformValue("sim_mvp2",sim_mvp2 );
+            m_shaderProgram.setUniformValue("sim_mvp3",sim_mvp3 );
+            m_shaderProgram.setUniformValue("sim_mvp4",sim_mvp4 );
+            m_shaderProgram.setUniformValue("sim_mvp5",sim_mvp5 );
+            m_shaderProgram.setUniformValue("simTexture0",0);
+            m_shaderProgram.setUniformValue("simTexture1",1);
+            m_shaderProgram.setUniformValue("simTexture2",2);
+            m_shaderProgram.setUniformValue("simTexture3",3);
+            m_shaderProgram.setUniformValue("simTexture4",4);
+            m_shaderProgram.setUniformValue("simTexture5",5);
+            glActiveTexture(GL_TEXTURE0 + 0); // Texture unit 0
+            glBindTexture(GL_TEXTURE_2D, sim0);
+
+            glActiveTexture(GL_TEXTURE0 + 1); // Texture unit 1
+            glBindTexture(GL_TEXTURE_2D, sim1);
+
+            glActiveTexture(GL_TEXTURE0 + 2); // Texture unit 2
+            glBindTexture(GL_TEXTURE_2D, sim2);
+
+            glActiveTexture(GL_TEXTURE0 + 3); // Texture unit 3
+            glBindTexture(GL_TEXTURE_2D, sim3);
+
+            glActiveTexture(GL_TEXTURE0 + 4); // Texture unit 4
+            glBindTexture(GL_TEXTURE_2D, sim4);
+
+            glActiveTexture(GL_TEXTURE0 + 5); // Texture unit 5
+            glBindTexture(GL_TEXTURE_2D, sim5);
+        }
         QVector3D camSimPos=entities.getCamera(entities.simIndex).position+QVector3D(0.0,entities.camParams.height,0.0);
 
         m_ShadowMapProgram.setUniformValue( "lightPos", camSimPos );

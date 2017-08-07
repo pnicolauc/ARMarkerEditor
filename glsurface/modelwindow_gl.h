@@ -118,7 +118,12 @@ private:
     GLuint sim4;
     GLuint sim5;
     bool cameraSim;
+
+    bool usePreviousCameraSimPos;
+
     int simCount;
+    int stepx;
+    int stepy;
 
     QVector<QVector3D> simDirs;
 
@@ -161,6 +166,11 @@ private:
     m_SimView1,m_SimView2,
     m_SimView3,m_SimView4,
     m_SimView5;
+
+    QMatrix4x4  m_prevSimView0,
+    m_prevSimView1,m_prevSimView2,
+    m_prevSimView3,m_prevSimView4,
+    m_prevSimView5;
 
     QOpenGLTexture* shadowTexture;
 

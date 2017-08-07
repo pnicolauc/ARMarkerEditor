@@ -14,7 +14,7 @@ class CameraMenu : public QWidget
 public:
     explicit CameraMenu(QWidget *parent = 0);
     ~CameraMenu();
-    void editCamera(int index,Camera* camera,bool* runSim,CameraParams* camParams);
+    void editCamera(int index,Camera* camera,bool* runSim,CameraParams* camParams,int* simCount);
 
 
 private:
@@ -23,6 +23,7 @@ private:
     Camera *m_Camera;
     CameraParams *m_CameraParams;
     bool* m_runSim;
+    int* m_simCount;
 public slots:
     void runSimulation();
     void changeCameraParams();

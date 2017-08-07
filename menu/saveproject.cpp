@@ -2,6 +2,7 @@
 #include "ui_saveproject.h"
 
 #include <QFileDialog>
+#include <QMessageBox>
 
 SaveProject::SaveProject(QWidget *parent) :
     QDialog(parent),
@@ -31,6 +32,7 @@ void SaveProject::setModelFolder(QString path){
 
 }
 
+
 void SaveProject::setVirtualFolder(QString path){
     virtualFolder=path;
     ui->virtual_folder->setText(virtualFolder);
@@ -51,7 +53,14 @@ void SaveProject::setKey(QString key){
 }
 
 void SaveProject::save(){
-    emit saveProj(modelFolder,virtualFolder,zipFolder,outPath,m_key);
+    m_key = ui->vuf_key->toPlainText();
+    if(modelFolder.length()> 0 && virtualFolder.length() >0 && (zipFolder.length()> 0 |xml.length()>0)&& outPath.length()>0 && m_key.length()>0)
+        emit saveProj(modelFolder,virtualFolder,zipFolder,outPath,m_key);
+    else {
+        QMessageBox Msgbox;
+        Msgbox.setText("Missing fields.");
+        Msgbox.exec();
+    }
 }
 
 void SaveProject::browse1(){

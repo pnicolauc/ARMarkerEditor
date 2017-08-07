@@ -22,14 +22,14 @@ public:
 
 
 private:
-    ARDataLoader* ardataloader;
+    ARDataLoader* ardataloader=nullptr;
     Ui::MainWindow *ui;
     ModelWindow_GL* modelWindow=nullptr;
     QWidget* objectEditor= nullptr;
     QWidget* glcontainer= nullptr;
 public slots:
     void addMarkerMenu(int index,Marker* marker);
-    void addCameraMenu(int index,Camera* camera, bool*runSim,CameraParams* camParams);
+    void addCameraMenu(int index,Camera* camera, bool*runSim,CameraParams* camParams,int* simCount);
     bool addGLWindow();
     bool openProject();
     bool opensaveProjectMenu();

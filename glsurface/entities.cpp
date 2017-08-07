@@ -43,14 +43,14 @@ QOpenGLTexture* Entities::getCameraTexture(){
  return defaultCameraTexture;
 }
 
-int Entities::createMarker(QString name,QVector3D pos,QVector3D rot,float angle){
+int Entities::createMarker(QString name,QVector2D sc,QVector3D pos,QVector3D rot,float angle){
     Marker marker;
 
     marker.name= name;
     marker.position= pos;
     marker.rotation= rot;
     marker.angle=angle;
-    marker.scale=QVector2D(1.0,1.0);
+    marker.scale=sc;
     marker.texture = defaultMarkerTexture;
     marker.image = defaultMarkerImage;
 
@@ -88,7 +88,7 @@ Camera Entities::getCamera(int index){
 }
 
 
-int Entities::createCamera(QVector3D pos,QVector3D rot,QVector2D scale,float angle){
+int Entities::createCamera(QVector3D pos,QVector3D rot,QVector2D scale,float angle,int* simCount){
     Camera camera;
     camera.position= pos;
     camera.rotation= rot;
@@ -98,7 +98,7 @@ int Entities::createCamera(QVector3D pos,QVector3D rot,QVector2D scale,float ang
 
     selectedCam=cameras.size()-1;
 
-    emit glSignalEmitter->editCamera(cameras.size()-1,&cameras[cameras.size()-1],&runSim,&camParams);
+    emit glSignalEmitter->editCamera(cameras.size()-1,&cameras[cameras.size()-1],&runSim,&camParams,simCount);
     return  ((-cameras.size()));
 }
 

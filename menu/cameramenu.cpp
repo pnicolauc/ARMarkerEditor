@@ -13,14 +13,17 @@ CameraMenu::~CameraMenu()
     delete ui;
 }
 
-void CameraMenu::editCamera(int index,Camera* camera,bool* runSim,CameraParams* camParams)
+void CameraMenu::editCamera(int index,Camera* camera,bool* runSim,CameraParams* camParams,int* simCount)
 {
     m_Index=index;
     m_Camera=camera;
     m_CameraParams=camParams;
     m_runSim=runSim;
+    m_simCount=simCount;
     ui->haov->setValue(camParams->horizontalAOV);
     ui->vaov->setValue(camParams->verticalAOV);
+
+    m_simCount=simCount;
 
     ui->hei->setValue(camParams->height);
 
@@ -55,5 +58,6 @@ void CameraMenu::changeCamera(){
 
 void CameraMenu::runSimulation(){
     *m_runSim=true;
+    *m_simCount=0;
 }
 

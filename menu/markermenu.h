@@ -16,6 +16,7 @@ class MarkerMenu : public QWidget
 public:
     explicit MarkerMenu(QWidget *parent = 0);
     void editMarker(int index,Marker* marker);
+
 private:
     Ui::MarkerMenu *ui;
     int m_Index;
@@ -24,6 +25,7 @@ private:
 public slots:
     void markerEdit();
     void OpenImage();
+    void changeName();
 
 signals:
     void markerChanged(int index,Marker* marker);

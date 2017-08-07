@@ -97,10 +97,12 @@ bool MainWindow::openProject(){
 
     QOpenGLContext *context = createOpenGLContext(3, 3);
 
-    QString sourceFn=QString("/ardata/") + ardataloader->modelFolder + "/" + ardataloader->threeDFile;
+    QString sourceFn=QString("/ardata/") + ardataloader->modelFolder + "/" + ardataloader->realthreeDFile;
     QString sourceFn2=QString("/ardata/") + ardataloader->modelFolder + "/" + ardataloader->threeDFile;
 
     qDebug() << sourceFn;
+    qDebug() << sourceFn2;
+
     if (!context)
         qApp->quit();
 
@@ -140,7 +142,9 @@ bool MainWindow::saveProject(QString mf,QString vf, QString zf, QString op,QStri
         QFileInfo f2(modelWindow->m_filepath2);
         ardataloader->fullModelfolder = f1.absoluteDir().absolutePath();
         ardataloader->fullModelfolder2= f2.absoluteDir().absolutePath();
-        ardataloader->modelFolder= QString("obj");
+
+        if(ardataloader->modelFolder.length()==0)
+            ardataloader->modelFolder= QString("model");
         ardataloader->threeDFile =f2.fileName();
         ardataloader->realthreeDFile=f1.fileName();
         ardataloader->save(op);
@@ -156,9 +160,14 @@ bool MainWindow::opensaveProjectMenu(){
 
     savePr->setModelFolder(modelWindow->m_filepath);
     savePr->setVirtualFolder(modelWindow->m_filepath2);
-    savePr->setSavePath(QStandardPaths::displayName( QStandardPaths::DesktopLocation ) + "/new.ardata");
+    savePr->setSavePath(QStandardPaths::locate(QStandardPaths::DesktopLocation, QString(), QStandardPaths::LocateDirectory)+"new.ardata");
 
+    if(ardataloader!=nullptr){
+        savePr->setKey(ardataloader->key);
+        savePr->xml = ardataloader->xmlfile;
+    }
     connect(savePr,SIGNAL(saveProj(QString, QString, QString,QString,QString)), this, SLOT(saveProject(QString, QString, QString,QString,QString)));
+
 }
 
 bool MainWindow::addGLWindow(){
@@ -213,7 +222,7 @@ bool MainWindow::addGLWindow(){
 
 void MainWindow::setupGLSignals(){
     connect(modelWindow->entities.glSignalEmitter,SIGNAL(editMarker(int,Marker*)), this, SLOT(addMarkerMenu(int,Marker*)));
-    connect(modelWindow->entities.glSignalEmitter,SIGNAL(editCamera(int,Camera*,bool*,CameraParams*)), this, SLOT(addCameraMenu(int,Camera*,bool*,CameraParams*)));
+    connect(modelWindow->entities.glSignalEmitter,SIGNAL(editCamera(int,Camera*,bool*,CameraParams*,int*)), this, SLOT(addCameraMenu(int,Camera*,bool*,CameraParams*,int*)));
 
 }
 
@@ -228,14 +237,13 @@ void MainWindow::addMarkerMenu(int index,Marker* marker){
     connect(markermenu,SIGNAL(markerChanged(int,Marker*)), modelWindow, SLOT(_markerChanged(int,Marker*)));
 }
 
-void MainWindow::addCameraMenu(int index,Camera* camera,bool* runSim,CameraParams* camParams){
+void MainWindow::addCameraMenu(int index,Camera* camera,bool* runSim,CameraParams* camParams,int* simCount){
     if(objectEditor!=nullptr) objectEditor->deleteLater();
 
     CameraMenu* cameramenu= new CameraMenu(this);
     objectEditor = cameramenu;
-    cameramenu->editCamera(index,camera,runSim,camParams);
+    cameramenu->editCamera(index,camera,runSim,camParams,simCount);
     ui->objectEditor->addWidget(cameramenu);
-
 }
 
 

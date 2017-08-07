@@ -4,6 +4,7 @@
 #include <glsurface/openglwindow.h>
 #include <QHash>
 #include <QVector2D>
+#include <zipreader/zipwriter.h>
 
 class ARDataLoader
 {
@@ -15,8 +16,11 @@ public:
 
     void parseJSonFile();
     void parseXMLFile();
+    void writeXMLFile();
+
     void save(QString filename);
     bool copy_dir_recursive(QString from_dir, QString to_dir, bool replace_on_conflit);
+    void addDirToZip(ZipWriter* cZip,QString mainFolder,QString relativePath);
 
     QVector<Marker> getMarkers();
     void setMarkers(QVector<Marker> mks);

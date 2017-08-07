@@ -26,6 +26,22 @@ in vec3 interpolatedNormal;
 out vec4 fragmentColor;
 
 
+uniform bool usePreviousCameraSimPos;
+
+
+uniform sampler2D simTexture0;
+uniform sampler2D simTexture1;
+uniform sampler2D simTexture2;
+uniform sampler2D simTexture3;
+uniform sampler2D simTexture4;
+uniform sampler2D simTexture5;
+
+in vec4 interpolatedShadow0;
+in vec4 interpolatedShadow1;
+in vec4 interpolatedShadow2;
+in vec4 interpolatedShadow3;
+in vec4 interpolatedShadow4;
+in vec4 interpolatedShadow5;
 
 #define M_PI 3.1415926535897932384626433832795
 
@@ -106,5 +122,98 @@ void main()
     }
 
     fragmentColor = vec4(normalColor, gl_FragCoord.z);
+
+    if(usePreviousCameraSimPos){
+        int count;
+        vec4 simVals;
+        vec4 currentShadow;
+        vec3 projCoords;
+        vec2 poissonDisk[4] = vec2[](
+          vec2( -0.94201624, -0.39906216 ),
+          vec2( 0.94558609, -0.76890725 ),
+          vec2( -0.094184101, -0.92938870 ),
+          vec2( 0.34495938, 0.29387760 )
+        );
+        float bias = 0.005;
+
+        for(count=0;count<6;count++){
+        simVals = vec4(0,0,0,0);
+        vec3 diffuseContribution = vec3(0.0);
+
+        switch(count) {
+                   case 0:
+                   currentShadow=interpolatedShadow0;
+                   break;
+                   case 1:
+                   currentShadow=interpolatedShadow1;
+                   break;
+                   case 2:
+                   currentShadow=interpolatedShadow2;
+                   break;
+                   case 3:
+                   currentShadow=interpolatedShadow3;
+                   break;
+                   case 4:
+                   currentShadow=interpolatedShadow4;
+                   break;
+                   case 5:
+                   currentShadow=interpolatedShadow5;
+                   break;
+               }
+
+        projCoords = currentShadow.xyz/ currentShadow.w;
+        projCoords = projCoords * 0.5 + 0.5;
+        if(projCoords.x<=1.0 && projCoords.x >= 0.0 && projCoords.y<=1.0 && projCoords.y >=0.0 &&  projCoords.z<=1 )
+        {
+
+        for (int i=0;i<4;i++){
+            switch(count) {
+                case 0:
+                if ( texture2D( simTexture0, projCoords.xy + poissonDisk[i]/700.0 ).a  >  projCoords.z-bias ){
+                  simVals +=vec4(texture2D( simTexture0, projCoords.xy + poissonDisk[i]/700.0 ).rgb,1.0f);
+                }
+                //simVals = vec4(0,0,0,0);
+                break;
+                case 1:
+                if ( texture2D( simTexture1, projCoords.xy + poissonDisk[i]/700.0 ).a  >  projCoords.z-bias ){
+                  simVals +=vec4(texture2D( simTexture1, projCoords.xy + poissonDisk[i]/700.0 ).rgb,1.0f);
+                }
+                break;
+                case 2:
+                if ( texture2D( simTexture2, projCoords.xy + poissonDisk[i]/700.0 ).a  >  projCoords.z-bias ){
+                  simVals +=vec4(texture2D( simTexture2, projCoords.xy + poissonDisk[i]/700.0 ).rgb,1.0f);
+                }
+                break;
+                case 3:
+                if ( texture2D( simTexture3, projCoords.xy + poissonDisk[i]/700.0 ).a  >  projCoords.z-bias ){
+                  simVals +=vec4(texture2D( simTexture3, projCoords.xy + poissonDisk[i]/700.0 ).rgb,1.0f);
+                }
+                break;
+                case 4:
+                if ( texture2D( simTexture4, projCoords.xy + poissonDisk[i]/700.0 ).a  >  projCoords.z-bias ){
+                  simVals +=vec4(texture2D( simTexture4, projCoords.xy + poissonDisk[i]/700.0 ).rgb,1.0f);
+                }
+                break;
+                case 5:
+                if ( texture2D( simTexture5, projCoords.xy + poissonDisk[i]/700.0 ).a  >  projCoords.z-bias ){
+                  simVals +=vec4(texture2D( simTexture5, projCoords.xy + poissonDisk[i]/700.0 ).rgb,1.0f);
+                }
+                break;
+            }
+
+
+        }
+
+        simVals/=4;
+
+        if(simVals.r!=0.0 || simVals.g!=0.0 || simVals.b!=0.0 )
+            diffuseContribution.rgb = simVals.rgb;
+
+
+        break;
+        }else diffuseContribution = Kd * dot( lightSourceVector, normalVector);
+
+        }
+    }
 
 }
